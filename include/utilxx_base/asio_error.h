@@ -9,6 +9,7 @@
 ///   (http_client.h/ws_client.h 等已具备)
 #pragma once
 
+#include <type_traits>
 #include <boost/asio.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/system/system_error.hpp>
