@@ -19,7 +19,7 @@
 
 namespace utilxx_base {
 
-class JsonView {
+class UTILXX_BASE_API JsonView {
 public:
 
     JsonView() noexcept = default;
@@ -114,27 +114,29 @@ private:
     bool                     valid_ = false;
 };
 
+// 说明: 以下 get<T> 显式特化在 src/json_view.cpp 中定义。MSVC 的类级 dllexport
+// 不会传递到类外定义的显式特化, 因此逐个标注 UTILXX_BASE_API。
 template<>
-std::string_view JsonView::get<std::string_view>() const;
+UTILXX_BASE_API std::string_view JsonView::get<std::string_view>() const;
 template<>
-std::string JsonView::get<std::string>() const;
+UTILXX_BASE_API std::string JsonView::get<std::string>() const;
 template<>
-bool JsonView::get<bool>() const;
+UTILXX_BASE_API bool JsonView::get<bool>() const;
 template<>
-int JsonView::get<int>() const;
+UTILXX_BASE_API int JsonView::get<int>() const;
 template<>
-unsigned int JsonView::get<unsigned int>() const;
+UTILXX_BASE_API unsigned int JsonView::get<unsigned int>() const;
 template<>
-long JsonView::get<long>() const;
+UTILXX_BASE_API long JsonView::get<long>() const;
 template<>
-unsigned long JsonView::get<unsigned long>() const;
+UTILXX_BASE_API unsigned long JsonView::get<unsigned long>() const;
 template<>
-long long JsonView::get<long long>() const;
+UTILXX_BASE_API long long JsonView::get<long long>() const;
 template<>
-unsigned long long JsonView::get<unsigned long long>() const;
+UTILXX_BASE_API unsigned long long JsonView::get<unsigned long long>() const;
 template<>
-double JsonView::get<double>() const;
+UTILXX_BASE_API double JsonView::get<double>() const;
 template<>
-float JsonView::get<float>() const;
+UTILXX_BASE_API float JsonView::get<float>() const;
 
 } // namespace utilxx_base

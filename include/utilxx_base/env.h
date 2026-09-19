@@ -14,12 +14,14 @@
 #include <string>
 #include <string_view>
 
+#include "utilxx_base/export.h"
+
 namespace utilxx_base {
 
 /// 全局单例: 统一环境变量管理
 /// - 预设变量存储于单例成员 (受互斥保护), 优先级高于系统环境变量
 /// - 单例经 ApplicationEnv::instance() 访问, 进程生命周期内唯一
-class ApplicationEnv {
+class UTILXX_BASE_API ApplicationEnv {
 public:
 
     /// 获取全局单例

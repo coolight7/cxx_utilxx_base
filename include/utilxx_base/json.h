@@ -20,6 +20,8 @@
 #include <utility>
 #include <vector>
 
+#include "utilxx_base/export.h"
+
 /// C++26 静态反射 (P2996) 特性检测
 /// - 仅当编译器真正启用反射时才为 1 (需同时满足: <meta> 可用 + 反射宏已定义,
 ///   即编译带 `-freflection`; GCC 16 默认不带该选项, 此时走 ADL 降级路径)
@@ -34,7 +36,7 @@
 
 namespace utilxx_base {
 
-class Json {
+class UTILXX_BASE_API Json {
 public:
 
     /// - Null: 空值
@@ -305,32 +307,35 @@ private:
 };
 
 // ----- get<T> 显式特化声明 -----
+// 说明: 这些特化在 src/json.cpp 中定义。MSVC 的类级 dllexport **不会**传递到
+// 类外定义的显式特化, 因此每个特化单独标注 UTILXX_BASE_API (动态库需导出,
+// 使用方按 dllimport 调用)。
 template<>
-Json Json::get<Json>() const;
+UTILXX_BASE_API Json Json::get<Json>() const;
 template<>
-std::string Json::get<std::string>() const;
+UTILXX_BASE_API std::string Json::get<std::string>() const;
 template<>
-bool Json::get<bool>() const;
+UTILXX_BASE_API bool Json::get<bool>() const;
 template<>
-int Json::get<int>() const;
+UTILXX_BASE_API int Json::get<int>() const;
 template<>
-unsigned int Json::get<unsigned int>() const;
+UTILXX_BASE_API unsigned int Json::get<unsigned int>() const;
 template<>
-long Json::get<long>() const;
+UTILXX_BASE_API long Json::get<long>() const;
 template<>
-unsigned long Json::get<unsigned long>() const;
+UTILXX_BASE_API unsigned long Json::get<unsigned long>() const;
 template<>
-long long Json::get<long long>() const;
+UTILXX_BASE_API long long Json::get<long long>() const;
 template<>
-unsigned long long Json::get<unsigned long long>() const;
+UTILXX_BASE_API unsigned long long Json::get<unsigned long long>() const;
 template<>
-double Json::get<double>() const;
+UTILXX_BASE_API double Json::get<double>() const;
 template<>
-float Json::get<float>() const;
+UTILXX_BASE_API float Json::get<float>() const;
 template<>
-std::vector<std::string> Json::get<std::vector<std::string>>() const;
+UTILXX_BASE_API std::vector<std::string> Json::get<std::vector<std::string>>() const;
 template<>
-std::string_view Json::get<std::string_view>() const;
+UTILXX_BASE_API std::string_view Json::get<std::string_view>() const;
 
 // ----- 迭代器 -----
 class Json::iterator {

@@ -10,16 +10,18 @@
 #include <string>
 #include <string_view>
 
+#include "utilxx_base/export.h"
+
 namespace utilxx_base {
 
 /// 平台 + 版本组成的人类可读系统名 (如 "Windows 11"、"Ubuntu 24.04"、"WSL2(Ubuntu)")
-[[nodiscard]] std::string getSystemName();
+[[nodiscard]] UTILXX_BASE_API std::string getSystemName();
 
 /// 当前运行环境是否为 WSL (Windows Subsystem for Linux)
-[[nodiscard]] bool isRunningInWSL();
+[[nodiscard]] UTILXX_BASE_API bool isRunningInWSL();
 
 /// PowerShell 可执行文件探测结果 (供命令执行工具选择执行器/生成提示词)
-struct PowerShellInfo {
+struct UTILXX_BASE_API PowerShellInfo {
     /// 是否找到可用的 PowerShell 可执行文件
     bool available = false;
     /// 可执行文件名, 如 "pwsh.exe" / "powershell.exe" (未找到时为空)
@@ -38,7 +40,7 @@ struct PowerShellInfo {
 /// - 探测内部带超时看门狗 (约 12s), 目标 exe 异常挂起时强制回收,
 ///   不会无限阻塞调用方
 /// - [forceRefresh] 默认 false 命中缓存; true 时忽略缓存重新探测
-[[nodiscard]] PowerShellInfo detectPowerShell(bool forceRefresh = false);
+[[nodiscard]] UTILXX_BASE_API PowerShellInfo detectPowerShell(bool forceRefresh = false);
 
 /// 当前运行环境是否支持**文件异步读写** (即 asio 的 `stream_file` 文件异步 I/O 是否有效)
 ///
@@ -55,7 +57,7 @@ struct PowerShellInfo {
 /// 调用方据此选择"异步实现 / 同步兜底实现", 见 [setAsyncFileIoSupported]。
 ///
 /// - 相关: 强制开关 (测试用) 见 [setAsyncFileIoSupported] / [resetAsyncFileIoSupported]
-[[nodiscard]] bool isAsyncFileIoSupported();
+[[nodiscard]] UTILXX_BASE_API bool isAsyncFileIoSupported();
 
 /// 强制设置 [isAsyncFileIoSupported] 的判断结果 (仅测试/调试用)
 /// - 设置后不再自动探测, [isAsyncFileIoSupported] 直接返回该值,
@@ -66,16 +68,16 @@ struct PowerShellInfo {
 ///
 /// - `args`:
 ///     - [supported] `true` 强制按可用处理; `false` 强制按不可用处理
-void setAsyncFileIoSupported(bool supported);
+UTILXX_BASE_API void setAsyncFileIoSupported(bool supported);
 
 /// 清除 [setAsyncFileIoSupported] 的强制设置, 恢复为自动探测的缓存结果
 /// - 与 [setAsyncFileIoSupported] 成对使用, 测试结束后应调用以免影响后续用例
-void resetAsyncFileIoSupported();
+UTILXX_BASE_API void resetAsyncFileIoSupported();
 
 /// 获取用户主目录 (Unix: $HOME, Windows: %USERPROFILE%); 未设置返回空串
-[[nodiscard]] std::string userHomeDir();
+[[nodiscard]] UTILXX_BASE_API std::string userHomeDir();
 
 /// 默认数据根目录: ~/.agentxx/ (取不到用户主目录时回退系统临时目录下的同名目录)
-[[nodiscard]] std::string defaultDataDir();
+[[nodiscard]] UTILXX_BASE_API std::string defaultDataDir();
 
 } // namespace utilxx_base

@@ -616,31 +616,31 @@ inline void normalizeLfToCrlf(std::string& text) {
     return std::string_view{str};
 }
 
-[[nodiscard]] std::string base64Encode(std::string_view data);
+[[nodiscard]] UTILXX_BASE_API std::string base64Encode(std::string_view data);
 
 /// base64 解码
 /// - 返回 nullopt 表示输入不是合法 base64; 合法但解码为空时返回 optional("")
 ///   (用以区分 "非法输入" 与 "空结果", 例如写入空二进制文件)
-[[nodiscard]] std::optional<std::string> base64Decode(std::string_view str);
+[[nodiscard]] UTILXX_BASE_API std::optional<std::string> base64Decode(std::string_view str);
 
-[[nodiscard]] std::tuple<bool, std::optional<std::string>> convertCharset(
+[[nodiscard]] UTILXX_BASE_API std::tuple<bool, std::optional<std::string>> convertCharset(
     std::string_view src,
     std::string_view srcEncoding,
     std::string_view targetEncoding
 );
 
-[[nodiscard]] std::tuple<bool, std::optional<std::string>> autoConvertCharset(
+[[nodiscard]] UTILXX_BASE_API std::tuple<bool, std::optional<std::string>> autoConvertCharset(
     std::string_view str,
     std::string&     encoding,
     std::string_view targetEncoding
 );
 
-[[nodiscard]] std::tuple<bool, std::optional<std::string>>
+[[nodiscard]] UTILXX_BASE_API std::tuple<bool, std::optional<std::string>>
     autoConvertToUtf8(std::string_view str, bool _);
 
-bool autoConvertToUtf8(std::string& str);
+UTILXX_BASE_API bool autoConvertToUtf8(std::string& str);
 
-[[nodiscard]] std::string autoTryConvertToUtf8(std::string_view str);
+[[nodiscard]] UTILXX_BASE_API std::string autoTryConvertToUtf8(std::string_view str);
 
 template<typename T>
 inline std::from_chars_result parseNumberFromString(std::string_view str, T& num) {
@@ -767,18 +767,18 @@ inline PinyinCallback s_pinyinCallback = nullptr;
     return result;
 }
 
-[[nodiscard]] std::string getFirstWordPinyin(std::string_view str);
+[[nodiscard]] UTILXX_BASE_API std::string getFirstWordPinyin(std::string_view str);
 
-[[nodiscard]] std::string getFirstCharPinyinFast(std::string_view str);
+[[nodiscard]] UTILXX_BASE_API std::string getFirstCharPinyinFast(std::string_view str);
 
-[[nodiscard]] std::optional<int> getComparableCode(std::string_view str, size_t index);
+[[nodiscard]] UTILXX_BASE_API std::optional<int> getComparableCode(std::string_view str, size_t index);
 
-[[nodiscard]] std::optional<std::string>
+[[nodiscard]] UTILXX_BASE_API std::optional<std::string>
     getFirstCharPinyin(std::string_view str, bool enableAZ = true, bool enableNum = true);
 
-[[nodiscard]] std::optional<std::string> getFirstCharPinyinFirstChar(std::string_view str);
+[[nodiscard]] UTILXX_BASE_API std::optional<std::string> getFirstCharPinyinFirstChar(std::string_view str);
 
-[[nodiscard]] int compareExtend(std::string_view left, std::string_view right);
+[[nodiscard]] UTILXX_BASE_API int compareExtend(std::string_view left, std::string_view right);
 
 [[nodiscard]] inline constexpr std::string collapseSlashes(std::string_view path) {
     std::string result;
@@ -1144,7 +1144,7 @@ inline PinyinCallback s_pinyinCallback = nullptr;
     return std::nullopt;
 }
 
-[[nodiscard]] std::string replaceOrAppendExt(std::string_view inpath, std::string_view newExt);
+[[nodiscard]] UTILXX_BASE_API std::string replaceOrAppendExt(std::string_view inpath, std::string_view newExt);
 
 [[nodiscard]] inline constexpr std::optional<std::string_view>
     getParentDirPath(std::string_view in_path) {
@@ -1366,6 +1366,6 @@ inline PinyinCallback s_pinyinCallback = nullptr;
     return isIgnoreCaseContainsAny(str1, str2);
 }
 
-[[nodiscard]] std::string toArgument(std::string_view str, char mark = '"');
+[[nodiscard]] UTILXX_BASE_API std::string toArgument(std::string_view str, char mark = '"');
 
 } // namespace utilxx_base

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "fmt/format.h"
+#include "utilxx_base/export.h"
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -28,7 +29,7 @@ enum class LogLevel {
 
 /// 日志条目: 格式化一次, 经 shared_ptr<const LogEntry> 共享给所有 sink,
 /// sink 只读不可 move, 保证每个 sink 都能拿到完整内容
-struct LogEntry {
+struct UTILXX_BASE_API LogEntry {
     LogLevel    level;
     uint64_t    seq;     ///< 全局递增序号 (入队时分配, 用于排序)
     int64_t     wallNs;  ///< 墙钟时间 ns since epoch (入队时打, 反映产生时刻)
@@ -39,7 +40,7 @@ struct LogEntry {
 /// - 内置线程安全有界队列: 生产者线程调 enqueue() 入队, 宿主线程调 pump() 处理
 /// - onLog() 总在宿主线程串行执行, 子类无需自行加锁
 /// - 队列满时丢弃新条目并计数, 保证生产者永不阻塞
-class LogSink {
+class UTILXX_BASE_API LogSink {
 public:
 
     virtual ~LogSink() = default;
@@ -76,7 +77,7 @@ protected:
 /// 自带后台处理线程的 LogSink
 /// - 构造时启动线程, 析构时停止并 drain 剩余日志
 /// - 适用于 stderr 输出、网络转发等无需绑定特定线程的 sink
-class ThreadedLogSink : public LogSink {
+class UTILXX_BASE_API ThreadedLogSink : public LogSink {
 public:
 
     ThreadedLogSink();
@@ -168,7 +169,7 @@ private:
 /// - sink 以 weak_ptr 持有, 注册方需自行持有 shared_ptr 以保持其有效
 /// - 性能: dispatch 为最热路径, 采用 copy-on-write 快照实现无锁读取;
 ///   仅 addSink/removeSink (罕见) 在 mutex_ 下复制并原子替换快照
-class LogDispatcher {
+class UTILXX_BASE_API LogDispatcher {
 public:
 
     static LogDispatcher& instance();
@@ -201,19 +202,19 @@ private:
 };
 
 /// XX_LOG 宏统一入口: 格式化后入队到所有已注册的 sink
-void xxLogPrint(LogLevel level, std::string message);
+UTILXX_BASE_API void xxLogPrint(LogLevel level, std::string message);
 
 #if XX_IS_LINUX_D
 
-void printStack();
+UTILXX_BASE_API void printStack();
 
-void signalError(std::string_view exepath);
+UTILXX_BASE_API void signalError(std::string_view exepath);
 
 #else
 
-void printStack();
+UTILXX_BASE_API void printStack();
 
-void signalError(std::string_view exepath);
+UTILXX_BASE_API void signalError(std::string_view exepath);
 
 #endif
 

@@ -94,3 +94,16 @@ Linux / Windows / macOS / Android / iOS 均可编译。文件异步 I/O 支持�
 `utilxx_base::isAsyncFileIoSupported()` (Linux 由 io_uring 提供, 需运行时确认可用;
 liburing 依赖经 `CXX_UTILXX_BASE_LINUX_IO_URING_SUPPORTED` 启用, 导出接口以
 `PkgConfig::uring` 名称声明, 使用方自行 find)。
+
+## 导出面
+
+动态变体**默认不导出任何符号**, 只有公开头文件中标注 `UTILXX_BASE_API` 的 API
+才进入导出表/导入库 (静态链入的第三方符号、std 模板实例都不会外泄):
+
+- MSVC: 标注展开为 `dllexport` (构建动态库时) / `dllimport` (使用方);
+  静态使用方由目标接口定义 `CXX_UTILXX_BASE_STATIC`, 宏展开为空
+- GCC/Clang: 编译期 `-fvisibility=hidden` (+ `-fvisibility-inlines-hidden`),
+  标注展开为 `visibility("default")`
+- 类外定义的显式特化 (如 `Json::get<T>`) 不会被类级标注覆盖, 需逐个标注
+- 不使用 CMake 的 `WINDOWS_EXPORT_ALL_SYMBOLS`: 该机制要解析每个 `.obj` 的符号表
+  生成 `.def`, 而 `/GL` (LTO) 产物只有编译器中间表示、没有符号表, 二者互斥
