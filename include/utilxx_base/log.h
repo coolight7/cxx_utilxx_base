@@ -33,8 +33,22 @@ struct UTILXX_BASE_API LogEntry {
     LogLevel    level;
     uint64_t    seq;     ///< 全局递增序号 (入队时分配, 用于排序)
     int64_t     wallNs;  ///< 墙钟时间 ns since epoch (入队时打, 反映产生时刻)
+    /// 模块名 (产生日志的源文件基名, 或调用方显式给的标签; 空 = 未指定)
+    /// - XX_LOG* 宏自动填 [logModuleOf] (__FILE__) 的结果; 按模块调级别见
+    ///   [LogDispatcher::setModuleLevel]
+    std::string module;
     std::string message; ///< 已格式化的日志内容
 };
+
+/// 由源文件路径取"模块名" (文件名去掉扩展名; 目录分隔符兼容 `/` 与 `\`)
+/// - 编译期常量求值: 宏里直接传 `__FILE__`, 无运行期分配
+/// - 例: `D:/proj/lib/src/agent/session_store.cpp` -> `session_store`
+constexpr std::string_view logModuleOf(std::string_view file) noexcept {
+    const auto slash = file.find_last_of("/\\");
+    auto       base  = (slash == std::string_view::npos) ? file : file.substr(slash + 1);
+    const auto dot   = base.find_last_of('.');
+    return (dot == std::string_view::npos) ? base : base.substr(0, dot);
+}
 
 /// 日志接收基类
 /// - 内置线程安全有界队列: 生产者线程调 enqueue() 入队, 宿主线程调 pump() 处理
@@ -181,7 +195,26 @@ public:
     void removeSink(const std::shared_ptr<LogSink>& sink);
 
     /// 创建 LogEntry (打序号+时间戳) 并入队到所有 sink (线程安全, 非阻塞)
-    void dispatch(LogLevel level, std::string message);
+    /// - [module] 产生日志的模块名 (见 [LogEntry::module]); 空 = 未指定
+    void dispatch(LogLevel level, std::string_view module, std::string message);
+
+    /// 兼容旧签名 (无模块名; 插件/外部调用方按老接口调用时不至于链接失败)
+    void dispatch(LogLevel level, std::string message) {
+        dispatch(level, {}, std::move(message));
+    }
+
+    /// 按模块名调整最低输出级别 (计划 OBS-5): 低于该级别的日志直接丢弃, 不入队
+    /// - [modulePrefix] 模块名或前缀: 取**最长匹配**的一条生效 (相同长度时后注册者胜);
+    ///   例如注册 `modelcall` 只影响该文件, 注册 `plugin.` 影响所有 `plugin.*` 模块
+    /// - 未命中任何条目的模块不受影响 (照常全部入队, 由 sink 侧自行过滤级别)
+    /// - 热路径开销: dispatch 内一次小表线性查找 (条目数是人为配置的个位数)
+    void setModuleLevel(std::string_view modulePrefix, LogLevel minLevel);
+
+    /// 清空全部按模块级别设置 (恢复"不过滤")
+    void clearModuleLevels();
+
+    /// 已注册的按模块级别条目数 (诊断/测试)
+    size_t moduleLevelCount() const;
 
     /// 等待所有 sink 队列排空 (用于进程退出前确保日志不丢)
     void flush();
@@ -190,19 +223,50 @@ private:
 
     using SinkList = std::vector<std::weak_ptr<LogSink>>;
 
+    /// 按模块级别设置 (copy-on-write 快照: dispatch 无锁读, 设置时复制替换)
+    struct ModuleLevel {
+        std::string modulePrefix;
+        LogLevel    minLevel = LogLevel::Trace;
+    };
+    using ModuleLevelList = std::vector<ModuleLevel>;
+
     LogDispatcher() :
         sinks_(std::make_shared<const SinkList>()) {}
+
+    /// 该模块是否应被丢弃 (最长前缀匹配; 未命中返回 false = 不过滤)
+    bool filteredByModuleLevel(std::string_view module, LogLevel level) const;
 
     /// 仅用于序列化 add/remove 的 copy-on-write (注册罕见, 不在热路径)
     std::mutex mutex_;
     /// sink 快照: dispatch 无锁 load, add/remove 复制后原子 store
     AtomicSharedPtr<const SinkList> sinks_;
+    /// 按模块级别快照 (dispatch 无锁 load)
+    AtomicSharedPtr<const ModuleLevelList> moduleLevels_;
     /// 全局日志序号
     std::atomic<uint64_t> seq_{0};
 };
 
 /// XX_LOG 宏统一入口: 格式化后入队到所有已注册的 sink
 UTILXX_BASE_API void xxLogPrint(LogLevel level, std::string message);
+
+/// 带模块名的日志入口 (XX_LOG* 宏使用; [module] 由 [logModuleOf] 从 __FILE__ 求得)
+UTILXX_BASE_API
+    void xxLogPrint(LogLevel level, std::string_view module, std::string message);
+
+/// 解析并应用"按模块日志级别"配置 (计划 OBS-5)
+///
+/// - 规格形如 `前缀=级别,前缀=级别`, 级别取 `trace|debug|info|warn|error` (大小写不敏感);
+/// - 空段与非法段跳过并返回其数量 (调用方决定是否告警), 全部跳过时不动已有设置;
+/// - 只设置本次给出的条目 (不清理之前调用的结果)
+///
+/// - `args`:
+///     - [spec] 规格串 (通常来自环境变量 `AGENTXX_LOG_MODULES`)
+///
+/// - `return` 成功应用的条目数; `invalidEntries` 非空时写入被跳过的段 (便于告警)
+UTILXX_BASE_API size_t applyLogModuleLevelSpec(
+    std::string_view spec,
+    std::vector<std::string>* invalidEntries = nullptr
+);
 
 #if XX_IS_LINUX_D
 
@@ -220,29 +284,46 @@ UTILXX_BASE_API void signalError(std::string_view exepath);
 
 } // namespace utilxx_base
 
-#define XX_LOGT(str, ...)                 \
-    (::utilxx_base::xxLogPrint(         \
-        ::utilxx_base::LogLevel::Trace, \
-        fmt::format(str, ##__VA_ARGS__)   \
+#define XX_LOG_MODULE (::utilxx_base::logModuleOf(__FILE__))
+
+#define XX_LOGT(str, ...)                              \
+    (::utilxx_base::xxLogPrint(                      \
+        ::utilxx_base::LogLevel::Trace,              \
+        XX_LOG_MODULE,                               \
+        fmt::format(str, ##__VA_ARGS__)              \
     ));
 
-#define XX_LOGD(str, ...)                 \
-    (::utilxx_base::xxLogPrint(         \
-        ::utilxx_base::LogLevel::Debug, \
-        fmt::format(str, ##__VA_ARGS__)   \
+#define XX_LOGD(str, ...)                              \
+    (::utilxx_base::xxLogPrint(                      \
+        ::utilxx_base::LogLevel::Debug,              \
+        XX_LOG_MODULE,                               \
+        fmt::format(str, ##__VA_ARGS__)              \
     ));
 
-#define XX_LOGI(str, ...) \
-    (::utilxx_base::xxLogPrint(::utilxx_base::LogLevel::Info, fmt::format(str, ##__VA_ARGS__)));
-
-#define XX_LOGW(str, ...) \
-    (::utilxx_base::xxLogPrint(::utilxx_base::LogLevel::Warn, fmt::format(str, ##__VA_ARGS__)));
-
-#define XX_LOGE(str, ...)                 \
-    (::utilxx_base::xxLogPrint(         \
-        ::utilxx_base::LogLevel::Error, \
-        fmt::format(str, ##__VA_ARGS__)   \
+#define XX_LOGI(str, ...)                                                       \
+    (::utilxx_base::xxLogPrint(                                               \
+        ::utilxx_base::LogLevel::Info,                                        \
+        XX_LOG_MODULE,                                                        \
+        fmt::format(str, ##__VA_ARGS__)                                       \
     ));
 
-#define XX_OUT(str, ...) \
-    (::utilxx_base::xxLogPrint(::utilxx_base::LogLevel::Out, fmt::format(str, ##__VA_ARGS__)));
+#define XX_LOGW(str, ...)                                                       \
+    (::utilxx_base::xxLogPrint(                                               \
+        ::utilxx_base::LogLevel::Warn,                                        \
+        XX_LOG_MODULE,                                                        \
+        fmt::format(str, ##__VA_ARGS__)                                       \
+    ));
+
+#define XX_LOGE(str, ...)                              \
+    (::utilxx_base::xxLogPrint(                      \
+        ::utilxx_base::LogLevel::Error,              \
+        XX_LOG_MODULE,                               \
+        fmt::format(str, ##__VA_ARGS__)              \
+    ));
+
+#define XX_OUT(str, ...)                                                       \
+    (::utilxx_base::xxLogPrint(                                               \
+        ::utilxx_base::LogLevel::Out,                                         \
+        XX_LOG_MODULE,                                                        \
+        fmt::format(str, ##__VA_ARGS__)                                       \
+    ));

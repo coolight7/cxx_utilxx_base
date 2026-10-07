@@ -2,6 +2,9 @@
 
 #include <ctime>
 #include <iostream>
+#include <optional>
+#include <string_view>
+#include <utility>
 
 #if XX_IS_LINUX_D
 #include <cerrno>
@@ -190,7 +193,12 @@ void LogDispatcher::removeSink(const std::shared_ptr<LogSink>& sink) {
     sinks_.store(std::move(next), std::memory_order_release);
 }
 
-void LogDispatcher::dispatch(LogLevel level, std::string message) {
+void LogDispatcher::dispatch(LogLevel level, std::string_view module, std::string message) {
+    // 按模块级别过滤 (计划 OBS-5): 最低代价的检查放在最前面, 被过滤的日志
+    // 连 LogEntry 都不构造
+    if (filteredByModuleLevel(module, level)) {
+        return;
+    }
     auto entry = std::make_shared<const LogEntry>(LogEntry{
         level,
         seq_.fetch_add(1, std::memory_order_relaxed),
@@ -198,6 +206,7 @@ void LogDispatcher::dispatch(LogLevel level, std::string message) {
             std::chrono::system_clock::now().time_since_epoch()
         )
             .count(),
+        std::string{module},
         std::move(message),
     });
     // 无锁加载快照 (copy-on-write); 多线程并发 dispatch 互不阻塞
@@ -207,6 +216,55 @@ void LogDispatcher::dispatch(LogLevel level, std::string message) {
             sp->enqueue(entry);
         }
     }
+}
+
+bool LogDispatcher::filteredByModuleLevel(std::string_view module, LogLevel level) const {
+    auto levels = moduleLevels_.load(std::memory_order_acquire);
+    if (!levels || levels->empty()) {
+        return false;
+    }
+    // 最长前缀匹配 (长度相同取后注册的那条: 相等长度下保留最后一个命中)
+    const ModuleLevel* best     = nullptr;
+    size_t             bestLen  = 0;
+    for (const auto& item : *levels) {
+        if (item.modulePrefix.size() >= bestLen && module.starts_with(item.modulePrefix)) {
+            best    = &item;
+            bestLen = item.modulePrefix.size();
+        }
+    }
+    if (best == nullptr) {
+        return false;
+    }
+    return static_cast<int>(level) < static_cast<int>(best->minLevel);
+}
+
+void LogDispatcher::setModuleLevel(std::string_view modulePrefix, LogLevel minLevel) {
+    if (modulePrefix.empty()) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto                        cur  = moduleLevels_.load(std::memory_order_acquire);
+    auto                        next = std::make_shared<ModuleLevelList>();
+    if (cur) {
+        // 同前缀覆盖 (后设置者生效)
+        for (const auto& item : *cur) {
+            if (item.modulePrefix != modulePrefix) {
+                next->push_back(item);
+            }
+        }
+    }
+    next->push_back(ModuleLevel{std::string{modulePrefix}, minLevel});
+    moduleLevels_.store(std::move(next), std::memory_order_release);
+}
+
+void LogDispatcher::clearModuleLevels() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    moduleLevels_.store(std::make_shared<const ModuleLevelList>(), std::memory_order_release);
+}
+
+size_t LogDispatcher::moduleLevelCount() const {
+    auto levels = moduleLevels_.load(std::memory_order_acquire);
+    return levels ? levels->size() : 0;
 }
 
 void LogDispatcher::flush() {
@@ -219,7 +277,87 @@ void LogDispatcher::flush() {
 }
 
 void xxLogPrint(LogLevel level, std::string message) {
-    LogDispatcher::instance().dispatch(level, std::move(message));
+    LogDispatcher::instance().dispatch(level, std::string_view{}, std::move(message));
+}
+
+void xxLogPrint(LogLevel level, std::string_view module, std::string message) {
+    LogDispatcher::instance().dispatch(level, module, std::move(message));
+}
+
+size_t applyLogModuleLevelSpec(std::string_view spec, std::vector<std::string>* invalidEntries) {
+    size_t applied = 0;
+    size_t pos     = 0;
+    while (pos <= spec.size()) {
+        const auto comma = spec.find(',', pos);
+        auto       item  = spec.substr(pos, comma == std::string_view::npos ? std::string_view::npos
+                                                                            : comma - pos);
+        pos = (comma == std::string_view::npos) ? spec.size() + 1 : comma + 1;
+        // 去掉首尾空白 (含 \r, 便于直接读 Windows 环境变量)
+        while (!item.empty()
+               && (item.front() == ' ' || item.front() == '\t' || item.front() == '\r'
+                   || item.front() == '\n')) {
+            item.remove_prefix(1);
+        }
+        while (!item.empty()
+               && (item.back() == ' ' || item.back() == '\t' || item.back() == '\r'
+                   || item.back() == '\n')) {
+            item.remove_suffix(1);
+        }
+        if (item.empty()) {
+            continue; // 空段 (如结尾逗号) 不算错误
+        }
+        const auto eq = item.find('=');
+        if (eq == std::string_view::npos) {
+            if (invalidEntries) {
+                invalidEntries->emplace_back(item);
+            }
+            continue;
+        }
+        auto prefix = item.substr(0, eq);
+        auto level  = item.substr(eq + 1);
+        while (!prefix.empty() && (prefix.back() == ' ' || prefix.back() == '\t')) {
+            prefix.remove_suffix(1);
+        }
+        while (!level.empty() && (level.front() == ' ' || level.front() == '\t')) {
+            level.remove_prefix(1);
+        }
+        static constexpr std::pair<std::string_view, LogLevel> kLevels[] = {
+            {"trace", LogLevel::Trace},
+            {"debug", LogLevel::Debug},
+            {"info",  LogLevel::Info },
+            {"warn",  LogLevel::Warn },
+            {"error", LogLevel::Error},
+            {"out",   LogLevel::Out  },
+        };
+        std::optional<LogLevel> parsed;
+        for (const auto& [name, value] : kLevels) {
+            if (level.size() == name.size()) {
+                bool same = true;
+                for (size_t i = 0; i < name.size(); ++i) {
+                    const char c = level[i];
+                    const char lower
+                        = (c >= 'A' && c <= 'Z') ? static_cast<char>(c + ('a' - 'A')) : c;
+                    if (lower != name[i]) {
+                        same = false;
+                        break;
+                    }
+                }
+                if (same) {
+                    parsed = value;
+                    break;
+                }
+            }
+        }
+        if (prefix.empty() || !parsed.has_value()) {
+            if (invalidEntries) {
+                invalidEntries->emplace_back(item);
+            }
+            continue;
+        }
+        LogDispatcher::instance().setModuleLevel(prefix, *parsed);
+        ++applied;
+    }
+    return applied;
 }
 
 #if XX_IS_LINUX_D
