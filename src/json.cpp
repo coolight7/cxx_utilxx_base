@@ -135,7 +135,7 @@ void appendEscaped(std::string& out, std::string_view s) {
     out.push_back('"');
 }
 
-// double 最短往返表示 (与 yyjson/neograph 的 dump 口径一致: 1.0 -> "1.0")
+// double 最短往返表示 (与 yyjson/neograph 的 dump 规则一致: 1.0 -> "1.0")
 void appendDouble(std::string& out, double v) {
     if (!std::isfinite(v)) {
         // JSON 无 NaN/Inf 字面量: 降级为 null (与 yyjson 写行为一致)
@@ -158,7 +158,7 @@ void appendDouble(std::string& out, double v) {
         s     = std::string_view{buf, static_cast<size_t>(n > 0 ? n : 0)};
     }
     // 指数形态 (如 1e5 -> "1e+05") 在常见量级改用定点写法, 与旧输出
-    // ("100000.0") 及 yyjson 的口径保持一致 (短路/配置里的数值多为这类量级)
+    // ("100000.0") 及 yyjson 的定义保持一致 (短路/配置里的数值多为这类量级)
     if (auto ePos = s.find_first_of("eE"); ePos != std::string_view::npos) {
         auto expStr = s.substr(ePos + 1);
         if (false == expStr.empty() && expStr.front() == '+') {

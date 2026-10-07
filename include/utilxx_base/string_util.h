@@ -488,8 +488,8 @@ using IgnoreCaseSet = std::unordered_set<std::string, IgnoreCaseHash, IgnoreCase
     return true;
 }
 
-/// 估算 UTF-8 文本的 token 数量 (统一口径)
-/// - 口径统一规则:
+/// 估算 UTF-8 文本的 token 数量 (统一定义)
+/// - 规则统一规则:
 ///   - 0xF8-0xFF (无效 UTF-8 前导) 按 ascii 单字节处理
 ///   - 统计 unicode (非 ascii) 与 ascii 字符数
 ///   - 分别折算: unicode / unicodeCharsPerToken + ascii / asciiCharsPerToken

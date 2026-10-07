@@ -10,7 +10,7 @@
 /// 两条传播路径 (与图引擎的取消语义一致):
 /// 1. **轮询**: `isCancelled()` —— 循环/步骤边界自行检查, 只阻止后续工作;
 /// 2. **asio 取消信号**: `slot()` —— 经 `asio::bind_cancellation_slot` 绑到协程上,
-///    在途的 `co_await` (含网络 IO) 收到 `operation_aborted` 并干净展开。
+///    进行中的 `co_await` (含网络 IO) 收到 `operation_aborted` 并干净展开。
 ///
 /// 信号必须在持有它的执行器上 `emit` (asio 规则): `cancel()` 可从任意线程调用,
 /// 它先置位轮询标志, 再把 emit `post` 到已绑定的执行器上。
