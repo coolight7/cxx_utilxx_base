@@ -1,7 +1,7 @@
 # ===== cxx_utilxx_base: 无重依赖基础工具库 =====
 #
-# 定位: 与宿主无关的基础设施 (日志/JSON/字符串/容器/环境/系统探测/取消令牌/
-# 异步卸载), 供 cxx_utilxx / cxx_pluginxx 与各宿主复用。
+# 定位: 与主程序无关的基础设施 (日志/JSON/字符串/容器/环境/系统探测/取消令牌/
+# 异步卸载), 供 cxx_utilxx / cxx_pluginxx 与各主程序复用。
 # 依赖: fmt / simdjson / Boost (头) / iconv + uchardet (可选, 字符编码) /
 # liburing (可选, Linux 文件异步 I/O; 导出接口以库名 PkgConfig::uring 声明)
 # 产物: 动态库与静态库同时产出 (命名规则: Release 无后缀, Debug 文件名追加 d)
@@ -51,7 +51,7 @@ option(CXX_UTILXX_BASE_USE_BOOST_ASIO "Use Boost.Asio (define UTILXX_USE_BOOST_A
 # 在本机查找该目标, 再 find_package(cxx_utilxx_base)
 option(CXX_UTILXX_BASE_LINUX_IO_URING_SUPPORTED "Linux io_uring supported (asio file async IO)." OFF)
 
-# 库产物安装目录: 嵌套构建时由宿主 superbuild 传入 (与宿主库同目录, 便于
+# 库产物安装目录: 嵌套构建时由 superbuild 传入 (与上层库同目录, 便于
 # 统一管理运行期搜索路径); 独立构建时随标准库目录
 if (NOT DEFINED XX_EXEC_INSTALL_PREFIX)
   set(XX_EXEC_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
@@ -71,9 +71,9 @@ endif ()
 # ===== 可选依赖: io_uring =====
 # system.cpp 的异步文件 I/O 探测在 -DASIO_HAS_IO_URING 下直接调用
 # io_uring_queue_init/io_uring_queue_exit, 本库自身链接该实现; 导出接口只**声明
-# 依赖名 PkgConfig::uring**, 不写死库文件路径 —— 处理方 (宿主库/插件/可执行
+# 依赖名 PkgConfig::uring**, 不写死库文件路径 —— 处理方 (主程序库/插件/可执行
 # 程序) 需先在本机查找该目标, 再 find_package(cxx_utilxx_base)
-# (宿主构建按自己的顶层开关判断, 与本处开关同源)。
+# (主程序构建按自己的顶层开关判断, 与本处开关同源)。
 # 静态变体不携带依赖二进制, 处理方漏查找时会在运行期 (dlopen) 报
 # `undefined symbol: io_uring_queue_init`
 if (CXX_UTILXX_BASE_LINUX_IO_URING_SUPPORTED)
@@ -185,7 +185,7 @@ foreach (_t ${_CXX_UTILXX_BASE_TARGETS})
   )
   # asio 前缀映射: 源码写 asio/xxx.hpp, 由 ${Boost_INCLUDE_DIRS}/boost/ 命中
   # boost/asio/xxx.hpp; boost asio 内部 <boost/asio/...> 由 ${Boost_INCLUDE_DIRS} 命中。
-  # 两个 include 根缺一会让内部头回退到系统 Boost, 与宿主 asio 混用
+  # 两个 include 根缺一会让内部头回退到系统 Boost, 与主程序 asio 混用
   target_include_directories(${_t} SYSTEM PUBLIC
     "${Boost_INCLUDE_DIRS}"
     "${Boost_INCLUDE_DIRS}/boost/"

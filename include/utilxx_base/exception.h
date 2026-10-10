@@ -2,10 +2,10 @@
 
 /// 异常处理工具 (错误信息统一 UTF-8 化 / 控制流异常识别 / catchError 系列)
 ///
-/// 本头提供**与宿主无关**的默认实现:
+/// 本头提供**与主程序无关**的默认实现:
 /// - 默认分类器 [classifyCurrentException] 只把 [utilxx::CancelledException] 认作取消,
 ///   其余异常一律按错误处理 (asio `operation_aborted` 记为超时, 消息前缀 "timeout: ");
-/// - 宿主如有自己的控制流异常 (例如图引擎的取消/中断异常), 可用
+/// - 主程序如有自己的控制流异常 (例如图引擎的取消/中断异常), 可用
 ///   [setExtraExceptionClassifier] 注册追加识别回调, 使这类异常在**本库被调用的
 ///   路径上**(http/ws 等) 同样按控制流向上传播, 而不是被当成错误吞掉。
 ///
@@ -56,12 +56,12 @@ struct ExceptionClassification {
     std::exception_ptr exPtr;
 };
 
-/// 宿主追加的控制流识别回调
+/// 主程序追加的控制流识别回调
 /// - 须在 catch 块内调用 (内部用 `throw;` 重抛当前异常并按类型判断)
 /// - 返回 true 表示该异常属于控制流, 且已填好 `out`; false 表示不是本回调关心的类型
 using ExtraExceptionClassifier = bool (*)(ExceptionClassification& out) noexcept;
 
-/// 追加分类回调的进程级槽位 (宿主注册一次即可)
+/// 追加分类回调的进程级槽位 (主程序注册一次即可)
 inline std::atomic<ExtraExceptionClassifier>& extraClassifierSlot() noexcept {
     static std::atomic<ExtraExceptionClassifier> slot{nullptr};
     return slot;
@@ -78,7 +78,7 @@ inline ExtraExceptionClassifier extraExceptionClassifier() noexcept {
 }
 
 /// 默认异常分类器
-/// - 先在 catch 块内调用追加回调 (宿主自定义控制流异常, 见 [setExtraExceptionClassifier]);
+/// - 先在 catch 块内调用追加回调 (主程序自定义控制流异常, 见 [setExtraExceptionClassifier]);
 /// - 再依次识别: 取消异常 → 取消语义; asio 系统错误 (operation_aborted 记为超时);
 ///   boost::exception (保留完整诊断信息); std::exception; 其余按未知异常处理;
 /// - 错误消息统一转为 UTF-8 (部分平台上系统函数返回本地代码页消息)
@@ -87,7 +87,7 @@ inline ExtraExceptionClassifier extraExceptionClassifier() noexcept {
 inline ExceptionClassification classifyCurrentException() noexcept {
     ExceptionClassification res;
 
-    // 宿主追加的识别回调优先 (其内部自行按类型重抛, 未识别时返回 false)
+    // 主程序追加的识别回调优先 (其内部自行按类型重抛, 未识别时返回 false)
     if (auto extra = extraExceptionClassifier(); extra != nullptr) {
         try {
             if (extra(res)) {

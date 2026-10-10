@@ -1,11 +1,11 @@
 # cxx_utilxx_base
 
-无重依赖基础工具库 (与宿主无关的可复用基础设施)。
+无重依赖基础工具库 (与主程序无关的可复用基础设施)。
 
 ## 定位
 
 - **用途**: 日志 / JSON / 字符串与编码转换 / 容器辅助 / 环境变量 / 系统探测 /
-  取消令牌 / 异步卸载 —— 供 `cxx_utilxx`、`cxx_pluginxx` 与各宿主复用
+  取消令牌 / 异步卸载 —— 供 `cxx_utilxx`、`cxx_pluginxx` 与各主程序复用
 - **不含**: 网络 / 数据库 / 正则 / 图引擎 / 会话语义; 需要这些请用 `cxx_utilxx`
 - **依赖**: fmt、simdjson、Boost (仅头文件; asio/beast)、iconv + uchardet (可选, 字符编码)、
   liburing (可选, Linux/Android 文件异步 I/O —— `CXX_UTILXX_BASE_LINUX_IO_URING_SUPPORTED`;
@@ -32,7 +32,7 @@ src/                    实现 (env/json/json_view/log/string_util/system)
 
 ```cmake
 # 顺序: 先按开关查找依赖库的依赖 (条件依赖, 导出接口只声明目标名), 再导入依赖库本体
-if (CXX_UTILXX_BASE_LINUX_IO_URING_SUPPORTED)  # 与宿主构建的开关保持一致
+if (CXX_UTILXX_BASE_LINUX_IO_URING_SUPPORTED)  # 与主程序/顶层构建的开关保持一致
   find_package(PkgConfig REQUIRED)
   pkg_check_modules(uring REQUIRED IMPORTED_TARGET liburing)
 endif ()
@@ -50,7 +50,7 @@ target_link_libraries(your_target PRIVATE cxx_utilxx_base_static)  # 或 cxx_uti
   `fmt::fmt`/`OpenSSL::SSL` 同类), 不含任何库文件路径 —— 静态库不携带依赖二进制,
   具体库由使用方在自己机器上解析: 导入方须**先**在自身 CMakeLists 的依赖查找段写
   ```cmake
-  if (CXX_UTILXX_BASE_LINUX_IO_URING_SUPPORTED)   # 与宿主构建的开关同源
+  if (CXX_UTILXX_BASE_LINUX_IO_URING_SUPPORTED)   # 与主程序/顶层构建的开关同源
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(uring REQUIRED IMPORTED_TARGET liburing)
   endif ()
@@ -60,9 +60,9 @@ target_link_libraries(your_target PRIVATE cxx_utilxx_base_static)  # 或 cxx_uti
   漏查找时要么 configure 报目标不存在, 要么运行期加载报
   `undefined symbol: io_uring_queue_init`
 - **独立构建提醒**: Boost.Asio 在 Linux 上检测到 `<liburing.h>` 时会自动定义
-  `ASIO_HAS_IO_URING` (system.cpp 随之引用 io_uring), 故独立构建 (非宿主
+  `ASIO_HAS_IO_URING` (system.cpp 随之引用 io_uring), 故独立构建 (非顶层 superbuild
   superbuild 的子项目) 时应把 `CXX_UTILXX_BASE_LINUX_IO_URING_SUPPORTED` 设为 ON
-- **静态 / 动态变体选择**: 同一进程内需要单份实现 (如插件宿主与插件共享状态) 时用动态变体;
+- **静态 / 动态变体选择**: 同一进程内需要单份实现 (如插件框架与插件共享状态) 时用动态变体;
   否则用静态变体 (默认, 便于裁剪与分发)
 - 依赖经 `find_dependency` 链自动解析 (fmt/simdjson/Boost, 启用字符集时另有 iconv/uchardet;
   io_uring 为条件依赖, 按上述库名由使用方在 find_package 之前查找)
@@ -86,7 +86,7 @@ auto r = co_await utilxx::offloadCancellableAsync<int>(pool, token, [](std::atom
 本库统一使用 **Boost.Asio**: 源码写 `asio/xxx.hpp`, 由构建侧加入的两个 include 根
 (`<Boost>/include` 与 `<Boost>/include/boost/`) 映射到 `boost/asio/xxx.hpp`;
 `UTILXX_USE_BOOST_ASIO` 宏 (PUBLIC 传递) 提供全局 `namespace asio = ::boost::asio`。
-这**两个 include 根缺一不可**, 否则 boost asio 内部头会回退到系统 Boost, 与宿主 asio 混用崩溃。
+这**两个 include 根缺一不可**, 否则 boost asio 内部头会回退到系统 Boost, 与主程序 asio 混用崩溃。
 
 ## 平台
 

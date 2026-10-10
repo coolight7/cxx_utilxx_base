@@ -51,8 +51,8 @@ constexpr std::string_view logModuleOf(std::string_view file) noexcept {
 }
 
 /// 日志接收基类
-/// - 内置线程安全有界队列: 生产者线程调 enqueue() 入队, 宿主线程调 pump() 处理
-/// - onLog() 总在宿主线程串行执行, 子类无需自行加锁
+/// - 内置线程安全有界队列: 生产者线程调 enqueue() 入队, 框架/主程序线程调 pump() 处理
+/// - onLog() 总在框架/主程序线程串行执行, 子类无需自行加锁
 /// - 队列满时丢弃新条目并计数, 保证生产者永不阻塞
 class UTILXX_BASE_API LogSink {
 public:
@@ -62,7 +62,7 @@ public:
     /// 生产者线程调用, 线程安全入队 (满则丢弃)
     void enqueue(std::shared_ptr<const LogEntry> entry);
 
-    /// 宿主线程调用, 排空队列并逐条调 onLog; 返回处理条数
+    /// 框架/主程序线程调用, 排空队列并逐条调 onLog; 返回处理条数
     size_t pump();
 
     /// 等待队列排空 (默认循环调 pump; ThreadedLogSink 覆写为等待后台线程)
@@ -75,7 +75,7 @@ public:
 
 protected:
 
-    /// 宿主线程串行调用, 子类实现具体输出逻辑 (无需加锁)
+    /// 框架/主程序线程串行调用, 子类实现具体输出逻辑 (无需加锁)
     virtual void onLog(const LogEntry& entry) = 0;
 
     /// 队列溢出丢弃时调用 (默认写 stderr; 子类可覆写, 如 TUI 显示提示)
