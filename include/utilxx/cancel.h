@@ -3,7 +3,7 @@
 /// 协作式取消抽象 (跨库共享契约)
 ///
 /// 本头是 `cxx_utilxx_base` 里少数的跨库共享契约之一 (命名空间 `utilxx`):
-/// 插件框架内核 (`cxx_pluginxx`)、工具库 (`cxx_utilxx`) 与主程序项目都基于同一个
+/// 插件框架 (`cxx_pluginxx`)、工具库 (`cxx_utilxx`) 与主程序项目都基于同一个
 /// 取消令牌抽象工作, 因此它必须落在**无重依赖**的库内 (pluginxx 不允许引入
 /// OpenSSL/SQLite 等重依赖)。
 ///
