@@ -9,12 +9,29 @@
 #include <charconv>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <istream>
 #include <ostream>
 #include <sstream>
 #include <utility>
 
 #include "simdjson.h"
+
+// ===== 浮点 std::to_chars 的可用性 =====
+// Apple 平台的浮点 std::to_chars 由系统运行库提供 (iOS 16.3 / macOS 13.3 起):
+// 部署目标更低时头文件里标成 unavailable, 编译期直接报错
+// ("'to_chars' is unavailable: introduced in iOS 16.3")。
+// 这类目标改用下面的等价回退实现 —— 结果同样是"最短且可往返"的写法。
+#if defined(__APPLE__)                                                       \
+    && ((defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__)             \
+         && __ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__ < 160300)         \
+        || (defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__)           \
+            && __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < 130300))
+#define CXX_UTILXX_BASE_FLOAT_TO_CHARS_FALLBACK 1
+#else
+#define CXX_UTILXX_BASE_FLOAT_TO_CHARS_FALLBACK 0
+#endif
 
 namespace utilxx_base {
 
@@ -136,6 +153,135 @@ void appendEscaped(std::string& out, std::string_view s) {
 }
 
 // double 最短往返表示 (与 yyjson/neograph 的 dump 规则一致: 1.0 -> "1.0")
+
+#if CXX_UTILXX_BASE_FLOAT_TO_CHARS_FALLBACK
+/// 浮点 -> 最短且可往返的十进制文本 (等价于 std::to_chars 的默认形态)
+///
+/// libc++ 的默认形态是"科学写法与定点写法各自取最短, 再选更短的那个" (一样长时用定点):
+/// 100000 -> "1e+05"、1200000 -> "1200000"、3874150345668300800 -> "3874150345668300800"。
+/// 这里用 printf 重现同一套挑选规则: 有效数字从 1 位试起、小数位从 0 位试起, 直到文本读回来
+/// 与原值完全相等, 得到的就是最短且可往返的写法 (0.7 -> "0.7", 而不是 "%.17g" 的
+/// "0.69999999999999996")。
+/// 返回写入的字符数; 0 表示写入失败 (调用方回退 "%.17g")。
+size_t shortestRoundTripDecimal(char* dst, size_t size, double v) {
+    // 1) 最短科学写法 (尾数固定是 "d.ddd" 形态: 小数点前 1 位)
+    char   sci[64];
+    int    sciLen   = 0;
+    size_t digits   = 0;  // 尾数里的数字个数
+    int    exp10    = 0;  // 尾数首位的十进制指数
+    for (int precision = 0; precision <= 16; ++precision) {
+        const int wrote = std::snprintf(sci, sizeof(sci), "%.*e", precision, v);
+        if (wrote <= 0 || static_cast<size_t>(wrote) >= sizeof(sci)) {
+            break;
+        }
+        if (std::strtod(sci, nullptr) != v) {
+            continue;  // 还不能往返: 多留一位有效数字
+        }
+        sciLen = wrote;
+        digits = static_cast<size_t>(precision) + 1;
+        const char* expPos = std::strchr(sci, 'e');
+        exp10 = expPos != nullptr ? std::atoi(expPos + 1) : 0;
+        break;
+    }
+    if (sciLen == 0) {
+        return 0;
+    }
+
+    // 2) 定点写法的字符数 (只用来判断"值不值得生成"): 小数点落在第 pointAt 位数字之前
+    const long long pointAt = 1 + exp10;
+    long long       fixedLen = 0;
+    if (pointAt <= 0) {
+        fixedLen = 2 + (-pointAt) + static_cast<long long>(digits);  // "0." + 前导 0 + 数字
+    } else if (pointAt < static_cast<long long>(digits)) {
+        fixedLen = static_cast<long long>(digits) + 1;  // 数字 + 小数点
+    } else {
+        fixedLen = pointAt;  // 纯整数: 补 0 到 pointAt 位
+    }
+    // 科学写法最多 24 个字符左右; 量级超出这个范围时定点一定更长,
+    // 不生成它 (否则 1e308 要写 309 位数字)
+    if (fixedLen <= static_cast<long long>(sciLen)) {
+        for (int decimals = 0; decimals <= 40; ++decimals) {
+            const int wrote = std::snprintf(dst, size, "%.*f", decimals, v);
+            if (wrote <= 0 || static_cast<size_t>(wrote) >= size) {
+                break;  // 缓冲区不够: 退回科学写法
+            }
+            if (std::strtod(dst, nullptr) == v) {
+                if (static_cast<size_t>(wrote) <= static_cast<size_t>(sciLen)) {
+                    return static_cast<size_t>(wrote);  // 定点更短 (一样长时也用定点)
+                }
+                break;
+            }
+        }
+    }
+
+    // 3) 定点没有更短: 用科学写法
+    if (static_cast<size_t>(sciLen) >= size) {
+        return 0;
+    }
+    std::memcpy(dst, sci, static_cast<size_t>(sciLen));
+    return static_cast<size_t>(sciLen);
+}
+
+/// 指数形态文本 -> 定点形态文本 (等价于 std::to_chars 的 chars_format::fixed)
+///
+/// 输入是已经最短且可往返的文本 (如 "1.25e+06") 与它的指数 [exp] (调用方已解析),
+/// 这里只移动十进制点: "1250000"。不重新做浮点格式化, 因此不会引入新的舍入误差;
+/// 位数不足时补 0。
+/// 返回写入的字符数; 0 表示文本不是指数形态或缓冲区不够 (调用方保留原文本)。
+size_t exponentialToFixed(std::string_view s, int exp, char* dst, size_t size) {
+    const size_t ePos = s.find_first_of("eE");
+    if (ePos == std::string_view::npos || ePos == 0) {
+        return 0;
+    }
+    std::string_view mantissa = s.substr(0, ePos);
+    bool             negative = false;
+    if (mantissa.front() == '-' || mantissa.front() == '+') {
+        negative = mantissa.front() == '-';
+        mantissa.remove_prefix(1);
+    }
+    std::string digits;      // 尾数里的数字 (去掉小数点)
+    size_t      beforeDot = 0;  // 小数点前的数字个数
+    for (const char ch : mantissa) {
+        if (ch == '.') {
+            beforeDot = digits.size();
+            continue;
+        }
+        if (ch < '0' || ch > '9') {
+            return 0;
+        }
+        digits.push_back(ch);
+    }
+    if (beforeDot == 0) {
+        beforeDot = digits.size();
+    }
+
+    const long long pointAt = static_cast<long long>(beforeDot) + exp;  // 小数点落在第几位之前
+    std::string out;
+    out.reserve(digits.size() + 8);
+    if (negative) {
+        out.push_back('-');
+    }
+    if (pointAt <= 0) {
+        out += "0.";
+        out.append(static_cast<size_t>(-pointAt), '0');
+    }
+    for (size_t i = 0; i < digits.size(); ++i) {
+        if (pointAt > 0 && static_cast<long long>(i) == pointAt) {
+            out.push_back('.');
+        }
+        out.push_back(digits[i]);
+    }
+    for (long long i = static_cast<long long>(digits.size()); i < pointAt; ++i) {
+        out.push_back('0');
+    }
+    if (out.size() >= size) {
+        return 0;
+    }
+    std::memcpy(dst, out.data(), out.size());
+    return out.size();
+}
+#endif  // CXX_UTILXX_BASE_FLOAT_TO_CHARS_FALLBACK
+
 void appendDouble(std::string& out, double v) {
     if (!std::isfinite(v)) {
         // JSON 无 NaN/Inf 字面量: 降级为 null (与 yyjson 写行为一致)
@@ -149,7 +295,17 @@ void appendDouble(std::string& out, double v) {
     char buf[64];
     // fixedBuf 与 buf 同级声明: 指数分支会令 s 指向它, 必须保证其生命周期
     // 覆盖到函数末尾 (声明在内层块内会立刻失效 → use-after-scope)
-    char             fixedBuf[64];
+    char fixedBuf[64];
+#if CXX_UTILXX_BASE_FLOAT_TO_CHARS_FALLBACK
+    // 低版本 Apple 目标: 浮点 to_chars 不可用 (见文件头), 用等价回退实现
+    size_t textLen = shortestRoundTripDecimal(buf, sizeof(buf), v);
+    if (textLen == 0) {
+        // 理论上不可达 (缓冲区足够): 回退 "%.17g" 保证不丢输出
+        const int n = std::snprintf(buf, sizeof(buf), "%.17g", v);
+        textLen = static_cast<size_t>(n > 0 ? n : 0);
+    }
+    std::string_view s{buf, textLen};
+#else
     auto             result = std::to_chars(buf, buf + sizeof(buf), v);
     std::string_view s{buf, static_cast<size_t>(result.ptr - buf)};
     if (result.ec != std::errc{}) {
@@ -157,6 +313,7 @@ void appendDouble(std::string& out, double v) {
         int n = std::snprintf(buf, sizeof(buf), "%.17g", v);
         s     = std::string_view{buf, static_cast<size_t>(n > 0 ? n : 0)};
     }
+#endif
     // 指数形态 (如 1e5 -> "1e+05") 在常见量级改用定点写法, 与旧输出
     // ("100000.0") 及 yyjson 的定义保持一致 (短路/配置里的数值多为这类量级)
     if (auto ePos = s.find_first_of("eE"); ePos != std::string_view::npos) {
@@ -168,11 +325,19 @@ void appendDouble(std::string& out, double v) {
         int  exp       = 0;
         auto expResult = std::from_chars(expStr.data(), expStr.data() + expStr.size(), exp);
         if (expResult.ec == std::errc{} && exp >= -4 && exp < 17) {
+#if CXX_UTILXX_BASE_FLOAT_TO_CHARS_FALLBACK
+            // 低版本 Apple 目标: to_chars(fixed) 不可用 —— 直接移动十进制点, 结果一致
+            const size_t fixedLen = exponentialToFixed(s, exp, fixedBuf, sizeof(fixedBuf));
+            if (fixedLen > 0) {
+                s = std::string_view{fixedBuf, fixedLen};
+            }
+#else
             auto fixedResult
                 = std::to_chars(fixedBuf, fixedBuf + sizeof(fixedBuf), v, std::chars_format::fixed);
             if (fixedResult.ec == std::errc{}) {
                 s = std::string_view{fixedBuf, static_cast<size_t>(fixedResult.ptr - fixedBuf)};
             }
+#endif
         }
     }
     // 纯整数写法 (如 "3") 补 ".0", 与 neograph dump 的浮点形态一致
