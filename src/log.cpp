@@ -156,8 +156,12 @@ void ThreadedLogSink::flush() {
 // ---------------------------------------------------------------------------
 
 LogDispatcher& LogDispatcher::instance() {
-    static LogDispatcher inst;
-    return inst;
+    // 故意不析构: 进程退出阶段仍可能有后台线程/游离协程打日志
+    // (典型: 静态对象销毁后, detached 协程清理自己的栈), 析构过的派发器会让它们
+    // 读写已释放的接收器表 —— 实测 ASan 报 heap-use-after-free。
+    // 泄漏的仅这一个对象 (含一个已停止的工作线程), 进程退出即回收。
+    static LogDispatcher* inst = new LogDispatcher();
+    return *inst;
 }
 
 LogDispatcher::~LogDispatcher() {
