@@ -87,6 +87,7 @@ set(_CXX_UTILXX_BASE_SOURCES
   src/log.cpp
   src/string_util.cpp
   src/system.cpp
+  src/version.cpp
 )
 
 # ===== 目标: 静态 + 动态同时产出 =====
@@ -123,7 +124,7 @@ set_target_properties(${_CXX_UTILXX_BASE_TARGETS} PROPERTIES
 if (NOT XX_IS_MSVC_D)
   # GCC/Clang: 默认隐藏全部符号, 仅导出头文件中标注 UTILXX_BASE_API 的公开 API
   # (该宏在 GCC/Clang 下展开为 visibility("default"))。与本项目其它模块一致
-  # (libagentxx / 插件均用 hidden + 白名单), 让链接器可安全裁剪内部符号
+  # (主程序库/插件均用 hidden + 白名单), 让链接器可安全裁剪内部符号
   # (含静态链入的第三方符号与 std 模板实例)。
   set_target_properties(${_CXX_UTILXX_BASE_TARGETS} PROPERTIES
     CXX_VISIBILITY_PRESET hidden

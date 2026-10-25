@@ -1,9 +1,8 @@
 /// 文件系统路径段安全化工具: 把任意文本转为可用作文件名/目录名的路径段
 ///
 /// - 用于"由用户输入/项目路径构造磁盘目录名"的场景 (会话数据目录、代码索引目录等)
-/// - 只依赖 agentxx/util/hash.h, 不引入日志等重头文件 (插件侧可直接包含)
-/// - 相关: 会话目录名构造见 SessionStore::sanitizeSessionId;
-///   CodeGraph 索引目录名构造见 codegraph_manager.cpp 的 sanitizeSegment
+/// - 只依赖 utilxx_base/hash.h, 不引入日志等重头文件 (插件侧可直接包含)
+/// - 相关: 文件名清洗需区分"保留原样"与"必须截断"时, 先清洗再自行处理长度
 #pragma once
 
 #include "utilxx_base/hash.h"

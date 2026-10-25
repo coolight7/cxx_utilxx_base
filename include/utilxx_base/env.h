@@ -1,7 +1,7 @@
 #pragma once
 
 /// 统一的环境变量访问封装 (预设变量 -> 系统环境变量)
-/// - 预设变量: 进程内全局存储 (启动时由 main 注入 AGENTXX_WORK_DIR / AGENTXX_EXEC_DIR 等),
+/// - 预设变量: 进程内全局存储 (启动时由主程序注入自己的变量, 如工作目录/可执行目录),
 ///   优先级高于系统环境变量, 用于消除对 ::getenv 的直接调用 (MSVC C4996)
 /// - 系统环境变量: Windows 使用 _dupenv_s (安全), POSIX 使用 ::getenv
 /// - 读取顺序: 预设 -> 系统; 未找到返回 nullopt

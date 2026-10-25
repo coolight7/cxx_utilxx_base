@@ -5,11 +5,11 @@
 /// 本头提供**与主程序无关**的默认实现:
 /// - 默认分类器 [classifyCurrentException] 只把 [utilxx::CancelledException] 认作取消,
 ///   其余异常一律按错误处理 (asio `operation_aborted` 记为超时, 消息前缀 "timeout: ");
-/// - 主程序如有自己的控制流异常 (例如图引擎的取消/中断异常), 可用
+/// - 主程序如有自己的控制流异常 (例如外部引擎的取消/中断异常), 可用
 ///   [setExtraExceptionClassifier] 注册追加识别回调, 使这类异常在**本库被调用的
 ///   路径上**(http/ws 等) 同样按控制流向上传播, 而不是被当成错误吞掉。
 ///
-/// 使用方式与图引擎版一致: 在 catch 块内调用 `catchError<T>(func, onError)`,
+/// 使用方式: 在 catch 块内调用 `catchError<T>(func, onError)`,
 /// 控制流异常默认原样重抛 (传 onRethrow 时交给它处理)。
 
 #include "utilxx_base/asio_error.h"
@@ -176,7 +176,7 @@ T catchErrorImpl(
                 std::rethrow_exception(info.exPtr);
             }
             std::string prefix
-                = (info.controlKind == ControlFlowKind::Interrupt) ? "NodeInterrupt" : "Cancelled";
+                = (info.controlKind == ControlFlowKind::Interrupt) ? "Interrupt" : "Cancelled";
             errmsg = fmt::format("{}: {}", prefix, info.errInfo);
         } else {
             errmsg = std::move(info.errInfo);
@@ -243,7 +243,7 @@ asio::awaitable<T> catchErrorAsyncImpl(
                 std::rethrow_exception(info.exPtr);
             }
             std::string prefix
-                = (info.controlKind == ControlFlowKind::Interrupt) ? "NodeInterrupt" : "Cancelled";
+                = (info.controlKind == ControlFlowKind::Interrupt) ? "Interrupt" : "Cancelled";
             errmsg = fmt::format("{}: {}", prefix, info.errInfo);
         } else {
             errmsg = std::move(info.errInfo);

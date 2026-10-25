@@ -15,9 +15,8 @@
 /// 信号必须在持有它的执行器上 `emit` (asio 规则): `cancel()` 可从任意线程调用,
 /// 它先置位轮询标志, 再把 emit `post` 到已绑定的执行器上。
 ///
-/// 主程序可自行实现 [CancelToken] (适配任意取消源, 例如图引擎的取消令牌经
-/// 适配器包装, 见 agentxx 的 `agentxx/util/cancel_adapter.h`), 也可直接使用
-/// 默认实现 [SignalCancelToken]。
+/// 主程序可自行实现 [CancelToken] (适配任意取消源, 例如外部引擎的取消令牌经
+/// 适配器包装), 也可直接使用默认实现 [SignalCancelToken]。
 
 #include "utilxx_base/asio_error.h"
 #include "asio/any_io_executor.hpp"

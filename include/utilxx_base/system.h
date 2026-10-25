@@ -1,11 +1,9 @@
 #pragma once
 
-/// 运行环境探测 (操作系统名称 / WSL / PowerShell / 文件异步 I/O / 默认数据目录)
+/// 运行环境探测 (操作系统名称 / WSL / PowerShell / 文件异步 I/O / 用户主目录)
 ///
-/// 由原 `agentxx/util/util.h` 的系统探测部分拆分而来, 不依赖业务引擎与特定主程序:
-/// 路径相关的两个函数 (userHomeDir / defaultDataDir) 说明用户主目录与默认数据
-/// 目录的取法, 主程序可自行选择其他目录并以显式路径使用 (数据库等存储路径约定
-/// 由主程序自行定义, 本库不涉及)。
+/// 不依赖业务引擎与特定主程序: 只说明用户主目录的取法, 本库不定义任何
+/// 数据目录约定 (存储路径由主程序自行决定并以显式路径使用)。
 
 #include <string>
 #include <string_view>
@@ -76,8 +74,5 @@ UTILXX_BASE_API void resetAsyncFileIoSupported();
 
 /// 获取用户主目录 (Unix: $HOME, Windows: %USERPROFILE%); 未设置返回空串
 [[nodiscard]] UTILXX_BASE_API std::string userHomeDir();
-
-/// 默认数据根目录: ~/.agentxx/ (取不到用户主目录时回退系统临时目录下的同名目录)
-[[nodiscard]] UTILXX_BASE_API std::string defaultDataDir();
 
 } // namespace utilxx_base

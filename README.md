@@ -10,7 +10,7 @@
 - **依赖**: fmt、simdjson、Boost (仅头文件; asio/beast)、iconv + uchardet (可选, 字符编码)、
   liburing (可选, Linux/Android 文件异步 I/O —— `CXX_UTILXX_BASE_LINUX_IO_URING_SUPPORTED`;
   导出接口以库名 `PkgConfig::uring` 声明, 具体库由使用方解析)
-  —— **禁止**依赖 neograph / OpenSSL / SQLite 等重依赖
+  —— **禁止**依赖 OpenSSL / SQLite 等重依赖
 
 ## 目录结构
 

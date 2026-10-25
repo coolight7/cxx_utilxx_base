@@ -152,7 +152,7 @@ void appendEscaped(std::string& out, std::string_view s) {
     out.push_back('"');
 }
 
-// double 最短往返表示 (与 yyjson/neograph 的 dump 规则一致: 1.0 -> "1.0")
+// double 最短往返表示 (与常见 JSON 库的 dump 规则一致: 1.0 -> "1.0")
 
 #if CXX_UTILXX_BASE_FLOAT_TO_CHARS_FALLBACK
 /// 浮点 -> 最短且可往返的十进制文本 (等价于 std::to_chars 的默认形态)
@@ -340,7 +340,7 @@ void appendDouble(std::string& out, double v) {
 #endif
         }
     }
-    // 纯整数写法 (如 "3") 补 ".0", 与 neograph dump 的浮点形态一致
+    // 纯整数写法 (如 "3") 补 ".0", 与常见 JSON 库 dump 的浮点形态一致
     const bool hasDotOrExp = (s.find('.') != std::string_view::npos)
                              || (s.find('e') != std::string_view::npos)
                              || (s.find('E') != std::string_view::npos);

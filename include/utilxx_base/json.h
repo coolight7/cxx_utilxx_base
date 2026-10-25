@@ -164,7 +164,7 @@ public:
     std::string_view get_string_view() const;
 
     // ----- 容器查询与修改 -----
-    /// - 数组/对象返回元素数, 字符串返回字节数, 其余返回 0 (与 neograph 一致)
+    /// - 数组/对象返回元素数, 字符串返回字节数, 其余返回 0
     size_t size() const noexcept;
     bool   empty() const noexcept;
     /// nlohmann 语义: null 不变, bool=false, 数字=0, 字符串="", 数组=[], 对象={}
@@ -249,7 +249,7 @@ public:
     const_iterator begin() const noexcept;
     const_iterator end() const noexcept;
 
-    /// 对象键查找 (数组上查找恒返回 end, 与 neograph 一致)
+    /// 对象键查找 (数组上查找恒返回 end)
     iterator       find(std::string_view key) noexcept;
     const_iterator find(std::string_view key) const noexcept;
 

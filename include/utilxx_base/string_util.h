@@ -297,7 +297,7 @@ using IgnoreCaseSet = std::unordered_set<std::string, IgnoreCaseHash, IgnoreCase
 }
 
 /// 统计文本的行数: '\n' 数量 + 末尾不以 '\n' 结尾的最后一个不完整行
-/// 与 `agentxx_share_store` 按行分页取值的行划分方式一致 (逐行读取)
+/// 与按行分页取值的行划分方式一致 (逐行读取)
 [[nodiscard]] inline constexpr size_t countLines(std::string_view in_str) {
     if (in_str.empty()) {
         return 0;
@@ -1021,8 +1021,8 @@ inline PinyinCallback s_pinyinCallback = nullptr;
 /// 4. 词法规范化 (去除 `./`、多余的 `../` 等, 不访问文件系统, 对不存在的路径安全)
 /// - 供 filesystem 系列工具与 permission 权限判断使用, 使相对路径
 ///   (如 `src/main.cpp`、`./a.txt`) 也能与绝对路径规则稳定匹配
-/// - baseDir 用于会话工作目录与进程 cwd 解耦 (AgentConfig::workDir,
-///   嵌入场景单进程多 agent 实例各自独立项目目录); 调用方应传入绝对路径
+/// - baseDir 用于把相对路径基准与进程 cwd 解耦 (例如单进程内多个业务实例
+///   各自有独立的工作目录); 调用方应传入绝对路径
 [[nodiscard]] inline std::string
     toCurrentSystemAbsolutePath(std::string_view path, std::string_view baseDir = "") {
     if (path.empty()) {

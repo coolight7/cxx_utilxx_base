@@ -260,7 +260,7 @@ UTILXX_BASE_API
 /// - 只设置本次给出的条目 (不清理之前调用的结果)
 ///
 /// - `args`:
-///     - [spec] 规格串 (通常来自环境变量 `AGENTXX_LOG_MODULES`)
+///     - [spec] 规格串 (通常来自主程序约定的环境变量, 如 `XX_LOG_MODULES`)
 ///
 /// - `return` 成功应用的条目数; `invalidEntries` 非空时写入被跳过的段 (便于告警)
 UTILXX_BASE_API size_t applyLogModuleLevelSpec(

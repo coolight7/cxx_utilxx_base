@@ -443,9 +443,6 @@ utilxx_base::PowerShellInfo utilxx_base::detectPowerShell(bool /*forceRefresh*/)
 
 namespace {
 
-/// 默认数据根目录名 (置于用户主目录下; 取不到主目录时置于系统临时目录下)
-constexpr std::string_view kDefaultDataDirName = ".agentxx";
-
 /// 自动探测结果缓存: 0 未探测 / 1 可用 / 2 不可用
 /// - 按进程只探测一次, 之后直接返回缓存值; 原子量用于多线程/多协程并发读取
 std::atomic<int> asyncFileIoProbeState{0};
@@ -553,15 +550,4 @@ std::string utilxx_base::userHomeDir() {
     auto home = ApplicationEnv::instance().get("HOME");
 #endif
     return (home && !home->empty()) ? *home : std::string{};
-}
-
-std::string utilxx_base::defaultDataDir() {
-    auto home = userHomeDir();
-    if (!home.empty()) {
-        return (std::filesystem::path(home) / kDefaultDataDirName).string();
-    }
-    // 取不到用户主目录 (极简容器等): 回退系统临时目录下的同名目录
-    std::error_code ec;
-    auto            tmp = std::filesystem::temp_directory_path(ec);
-    return (tmp / kDefaultDataDirName).string();
 }
