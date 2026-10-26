@@ -514,7 +514,7 @@ bool probeAsyncFileIoSupported() {
 } // namespace
 
 bool utilxx_base::isAsyncFileIoSupported() {
-    // 强制设置优先 (供测试关闭异步路径, 覆盖同步兜底实现)
+    // 强制设置优先 (供测试关闭异步路径, 覆盖同步备用实现)
     int overrideState = asyncFileIoOverrideState.load(std::memory_order_acquire);
     if (overrideState >= 0) {
         return overrideState == 1;

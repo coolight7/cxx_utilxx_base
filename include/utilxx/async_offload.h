@@ -62,7 +62,7 @@ namespace utilxx {
 
 /// 将同步阻塞函数卸载到线程池执行, 主协程挂起等待结果
 /// - fn: 无参可调用对象, 返回 T
-/// - 不支持取消 (fn 无法感知取消请求); 若需要取消支持请用 offloadCancellableAsync
+/// - 不支持取消 (fn 无法知道取消请求); 若需要取消支持请用 offloadCancellableAsync
 ///
 /// 注意: fn 必须按值传入。本函数是惰性协程 (asio::awaitable), 调用时不会立即执行协程体,
 /// 若 fn 用右值引用参数, 其引用的临时对象可能在协程体真正执行前已析构 (use-after-return)。

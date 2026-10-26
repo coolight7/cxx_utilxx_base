@@ -85,7 +85,7 @@ ThreadedLogSink::ThreadedLogSink() :
     }) {}
 
 ThreadedLogSink::~ThreadedLogSink() {
-    // 兜底停止 (兼容未在最派生类析构调用 shutdownThread 的外部子类)。
+    // 补充停止 (兼容未在最派生类析构调用 shutdownThread 的外部子类)。
     // 注意: 进入本析构体时虚表指针已切换为 ThreadedLogSink 虚表, 若日志线程
     // 此刻仍执行 onLog (纯虚) 虚调用会解析到纯虚函数 -> purecall -> abort。
     // 项目内子类必须在自身析构中先调用 shutdownThread() (见 StderrLogSink),

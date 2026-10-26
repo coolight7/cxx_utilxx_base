@@ -647,7 +647,7 @@ inline std::from_chars_result parseNumberFromString(std::string_view str, T& num
 #if defined(_LIBCPP_VERSION) && __has_include(<cstdlib>)
     if constexpr (std::is_floating_point_v<T>) {
         // libc++ (llvm-mingw) 的 from_chars 浮点特化缺失，回退到 strto*
-        // - 只要求完整消费 + 结果为有限值: 不可用 `errno == 0` 判定失败 ——
+        // - 只要求完整读取 + 结果为有限值: 不可用 `errno == 0` 判定失败 ——
         //   strtod 对**下溢** (如 "1e-320") 会置 ERANGE 但仍返回可用数值,
         //   按 errno 判定会把这类极小参数误判为非法
         std::string tmp(str);

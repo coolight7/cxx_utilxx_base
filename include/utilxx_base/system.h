@@ -52,14 +52,14 @@ struct UTILXX_BASE_API PowerShellInfo {
 /// - Windows: 文件异步 I/O 由 IOCP + 随机访问句柄提供 (编译期宏已确认), 无需运行时探测。
 ///
 /// 探测结果按进程缓存 (最多探测一次), 后续调用直接返回缓存值;
-/// 调用方据此选择"异步实现 / 同步兜底实现", 见 [setAsyncFileIoSupported]。
+/// 调用方据此选择"异步实现 / 同步备用实现", 见 [setAsyncFileIoSupported]。
 ///
 /// - 相关: 强制开关 (测试用) 见 [setAsyncFileIoSupported] / [resetAsyncFileIoSupported]
 [[nodiscard]] UTILXX_BASE_API bool isAsyncFileIoSupported();
 
 /// 强制设置 [isAsyncFileIoSupported] 的判断结果 (仅测试/调试用)
 /// - 设置后不再自动探测, [isAsyncFileIoSupported] 直接返回该值,
-///   便于测试关闭异步路径以覆盖同步兜底实现 (或反之);
+///   便于测试关闭异步路径以覆盖同步备用实现 (或反之);
 /// - 只影响判断结果, 不改变底层 asio/io_uring 的真实能力:
 ///   强制开启而实际不可用时, 异步读写会按各自实现的错误处理返回失败;
 /// - 相关: 恢复自动探测见 [resetAsyncFileIoSupported]

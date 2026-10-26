@@ -11,7 +11,7 @@
 
 namespace utilxx_base {
 
-/// 协程感知的互斥锁 (二元信号量)
+/// 协程安全的互斥锁 (二元信号量)
 /// - 用于在单线程协程 executor 上序列化临界区, 替代 std::mutex
 /// - 背景: 在单线程 executor 上持 std::mutex 跨越 co_await 会死锁 —— 阻塞线程会使
 ///   持锁协程的完成回调永远无法运行; 本锁以 co_await 等待令牌, 不阻塞线程

@@ -284,7 +284,7 @@ private:
     void copyFrom(const Json& other);
     void moveFrom(Json&& other) noexcept;
 
-    /// 越界/类型不匹配的可写访问兜底 (线程局部, 写入丢失, 仅读安全)
+    /// 越界/类型不匹配的可写访问回退 (线程局部, 写入丢失, 仅读安全)
     static Json& oobNull() noexcept;
     /// 只读访问缺失时的全局 Null 常量
     static const Json& constNull() noexcept;

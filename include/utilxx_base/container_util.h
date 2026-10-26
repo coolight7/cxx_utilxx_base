@@ -42,7 +42,7 @@ auto insertHeterogeneous(ContainerT& container, std::string key, Args&&... args)
 }
 
 /// 关联容器 (map) 覆盖实现 (若已存在则直接覆盖 value, 找不到值则插入):
-/// - [key] 声明为通用引用模板类型 KeyT&&, 先利用透明比较器进行异构 find 查找:
+/// - [key] 声明为通用引用模板类型 KeyT&&, 先用透明比较器做异构 find 查找:
 ///   - 若找到已有元素: 直接更新 it->second, 全程无需构造/拷贝 std::string, 零堆内存分配
 ///   - 若未找到: 仅在需要插入时根据 KeyT 类型构造或 move key 存入容器
 /// - 返回 std::pair<iterator, bool>, bool 为 true 表示新插入, false 表示覆盖已有值
