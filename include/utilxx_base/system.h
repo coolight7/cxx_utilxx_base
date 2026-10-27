@@ -48,7 +48,7 @@ struct UTILXX_BASE_API PowerShellInfo {
 /// - Linux/Android: asio 的文件异步 I/O 由 io_uring 提供, 编译期宏之外还需运行时
 ///   确认真的能创建 io_uring 环 —— 容器/虚拟化环境的 seccomp 过滤
 ///   (`/proc/self/status` 的 `Seccomp: 2`) 可能拦截 `io_uring_setup` 系统调用,
-///   内核过旧时该调用返回 `ENOSYS`, 此时返回 `false`;
+///   操作系统内核版本过旧时该调用返回 `ENOSYS`, 此时返回 `false`;
 /// - Windows: 文件异步 I/O 由 IOCP + 随机访问句柄提供 (编译期宏已确认), 无需运行时探测。
 ///
 /// 探测结果按进程缓存 (最多探测一次), 后续调用直接返回缓存值;

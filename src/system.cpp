@@ -483,7 +483,7 @@ bool probeAsyncFileIoSupported() {
 #if defined(ASIO_HAS_IO_URING) || defined(BOOST_ASIO_HAS_IO_URING)
     /// Linux/Android: asio 的文件异步 I/O 由 io_uring 提供, 编译期可用不代表运行
     /// 环境可用 —— 容器/虚拟化的 seccomp 过滤 (Seccomp: 2) 会拦截 `io_uring_setup`,
-    /// 内核过旧时该调用返回 ENOSYS, 故实际创建一个 io_uring 环来确认
+    /// 操作系统内核版本过旧时该调用返回 ENOSYS, 故实际创建一个 io_uring 环来确认
     io_uring ring{};
     int      initRet     = io_uring_queue_init(2, &ring, 0);
     int      seccompMode = readSeccompMode();
