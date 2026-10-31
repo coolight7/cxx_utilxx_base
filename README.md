@@ -7,6 +7,8 @@
 - **用途**: 日志 / JSON / 字符串与编码转换 / 容器辅助 / 环境变量 / 系统探测 /
   取消令牌 / 异步卸载 —— 供 `cxx_utilxx`、`cxx_pluginxx` 与各主程序复用
 - **不含**: 网络 / 数据库 / 正则 / 图引擎 / 会话语义; 需要这些请用 `cxx_utilxx`
+- **只放通用内容**: 本库被多个项目共用, 项目自己的模型、业务字段与解析分支留在各项目仓库,
+  不要为了某一个项目方便在这里加东西 (判据与反例见 `cxx_pluginxx_ui` 的 `README.md`「只放通用内容」)
 - **依赖**: fmt、simdjson、Boost (仅头文件; asio/beast)、iconv + uchardet (可选, 字符编码)、
   liburing (可选, Linux/Android 文件异步 I/O —— `CXX_UTILXX_BASE_LINUX_IO_URING_SUPPORTED`;
   导出接口以库名 `PkgConfig::uring` 声明, 具体库由使用方解析)
