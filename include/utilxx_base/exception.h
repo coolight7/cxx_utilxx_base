@@ -3,7 +3,7 @@
 /// 异常处理工具 (错误信息统一 UTF-8 化 / 控制流异常识别 / catchError 系列)
 ///
 /// 本头提供**与主程序无关**的默认实现:
-/// - 默认分类器 [classifyCurrentException] 只把 [utilxx::CancelledException] 认作取消,
+/// - 默认分类器 [classifyCurrentException] 只把 [utilxx::CanceledException] 认作取消,
 ///   其余异常一律按错误处理 (asio `operation_aborted` 记为超时, 消息前缀 "timeout: ");
 /// - 主程序如有自己的控制流异常 (例如外部引擎的取消/中断异常), 可用
 ///   [setExtraExceptionClassifier] 注册追加识别回调, 使这类异常在**本库被调用的
@@ -45,7 +45,7 @@ constexpr bool isNullCallable(const F& f) noexcept {
 
 enum class ControlFlowKind {
     None,
-    Cancelled,
+    Canceled,
     Interrupt,
 };
 
@@ -101,9 +101,9 @@ inline ExceptionClassification classifyCurrentException() noexcept {
 
     try {
         throw;
-    } catch (const utilxx::CancelledException& e) {
+    } catch (const utilxx::CanceledException& e) {
         res.isControlFlow = true;
-        res.controlKind   = ControlFlowKind::Cancelled;
+        res.controlKind   = ControlFlowKind::Canceled;
         res.errInfo       = e.what();
         autoConvertToUtf8(res.errInfo);
         res.exPtr = std::current_exception();
@@ -176,7 +176,7 @@ T catchErrorImpl(
                 std::rethrow_exception(info.exPtr);
             }
             std::string prefix
-                = (info.controlKind == ControlFlowKind::Interrupt) ? "Interrupt" : "Cancelled";
+                = (info.controlKind == ControlFlowKind::Interrupt) ? "Interrupt" : "Canceled";
             errmsg = fmt::format("{}: {}", prefix, info.errInfo);
         } else {
             errmsg = std::move(info.errInfo);
@@ -243,7 +243,7 @@ asio::awaitable<T> catchErrorAsyncImpl(
                 std::rethrow_exception(info.exPtr);
             }
             std::string prefix
-                = (info.controlKind == ControlFlowKind::Interrupt) ? "Interrupt" : "Cancelled";
+                = (info.controlKind == ControlFlowKind::Interrupt) ? "Interrupt" : "Canceled";
             errmsg = fmt::format("{}: {}", prefix, info.errInfo);
         } else {
             errmsg = std::move(info.errInfo);

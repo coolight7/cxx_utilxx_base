@@ -22,7 +22,7 @@ include/utilxx_base/    基础件 (命名空间 utilxx_base)
   container_util.h  hash.h  lru_cache.h  path_sanitize.h  stream.h
   async_mutex.h  asio_error.h  exception.h  version.h
 include/utilxx/         跨库共享契约 (命名空间 utilxx)
-  cancel.h              CancelToken / CancelTokenPtr / SignalCancelToken / CancelledException
+  cancel.h              CancelToken / CancelTokenPtr / SignalCancelToken / CanceledException
   async_offload.h       offloadAsync / offloadCancellableAsync / asyncWithTimeout
 src/                    实现 (env/json/json_view/log/string_util/system)
 ```

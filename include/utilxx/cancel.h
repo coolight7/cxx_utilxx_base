@@ -8,7 +8,7 @@
 /// OpenSSL/SQLite 等重依赖)。
 ///
 /// 两条传播路径 (与图引擎的取消语义一致):
-/// 1. **轮询**: `isCancelled()` —— 循环/步骤边界自行检查, 只阻止后续工作;
+/// 1. **轮询**: `isCanceled()` —— 循环/步骤边界自行检查, 只阻止后续工作;
 /// 2. **asio 取消信号**: `slot()` —— 经 `asio::bind_cancellation_slot` 绑到协程上,
 ///    进行中的 `co_await` (含网络 IO) 收到 `operation_aborted` 并干净展开。
 ///
@@ -38,20 +38,20 @@ namespace utilxx {
 /// 取消发生时抛出的异常
 /// - 属于**控制流**而非错误: 上层异常分类器应把它识别为取消并原样向上传播
 ///   (见 utilxx_base/exception.h 的 classifyCurrentException)
-class CancelledException : public std::runtime_error {
+class CanceledException : public std::runtime_error {
 public:
 
-    CancelledException() : std::runtime_error("run cancelled") {}
+    CanceledException() : std::runtime_error("run canceled") {}
 
-    explicit CancelledException(const std::string& detail) :
-        std::runtime_error(detail.empty() ? std::string{"run cancelled"} : "run cancelled — " + detail) {
+    explicit CanceledException(const std::string& detail) :
+        std::runtime_error(detail.empty() ? std::string{"run canceled"} : "run canceled — " + detail) {
     }
 };
 
 /// 取消令牌抽象 (主程序可实现/适配任意取消源)
 ///
 /// 约定:
-/// - 除特别说明外, 各方法可从任意线程调用; `cancel()` 幂等 (`isCancelled()` 为 true
+/// - 除特别说明外, 各方法可从任意线程调用; `cancel()` 幂等 (`isCanceled()` 为 true
 ///   后再次调用不再触发信号);
 /// - `fork()` 产生**子令牌**: 父令牌取消时级联取消全部存活子令牌, 每个子令牌有
 ///   自己的取消信号 (并发使用方之间互不覆盖对方的 slot);
@@ -63,7 +63,7 @@ public:
     virtual ~CancelToken() = default;
 
     /// 轮询读取取消标志 (无锁, 可高频调用)
-    [[nodiscard]] virtual bool isCancelled() const noexcept = 0;
+    [[nodiscard]] virtual bool isCanceled() const noexcept = 0;
 
     /// 请求取消 (线程安全, 幂等)
     virtual void cancel() noexcept = 0;
@@ -77,10 +77,10 @@ public:
     /// 创建级联子令牌 (父令牌取消时子令牌一并取消)
     [[nodiscard]] virtual std::shared_ptr<CancelToken> fork() = 0;
 
-    /// 已取消则抛出 [CancelledException] (步骤边界上的便捷检查)
-    void throwIfCancelled(std::string_view detail = {}) const {
-        if (isCancelled()) {
-            throw CancelledException{std::string{detail}};
+    /// 已取消则抛出 [CanceledException] (步骤边界上的便捷检查)
+    void throwIfCanceled(std::string_view detail = {}) const {
+        if (isCanceled()) {
+            throw CanceledException{std::string{detail}};
         }
     }
 };
@@ -104,7 +104,7 @@ public:
     SignalCancelToken& operator=(const SignalCancelToken&) = delete;
 
     void cancel() noexcept override {
-        if (cancelled_.exchange(true, std::memory_order_acq_rel)) {
+        if (canceled_.exchange(true, std::memory_order_acq_rel)) {
             return; // 已取消, 幂等返回
         }
 
@@ -139,8 +139,8 @@ public:
         }
     }
 
-    [[nodiscard]] bool isCancelled() const noexcept override {
-        return cancelled_.load(std::memory_order_acquire);
+    [[nodiscard]] bool isCanceled() const noexcept override {
+        return canceled_.load(std::memory_order_acquire);
     }
 
     asio::cancellation_slot slot() noexcept override {
@@ -152,7 +152,7 @@ public:
         {
             std::lock_guard<std::mutex> lk(mu_);
             ex_              = std::move(ex);
-            fireImmediately  = cancelled_.load(std::memory_order_acquire);
+            fireImmediately  = canceled_.load(std::memory_order_acquire);
         }
         if (!fireImmediately) {
             return;
@@ -196,7 +196,7 @@ public:
         }
 
         // 父已取消 → 子立即处于已取消状态 (bindExecutor 时补发信号)
-        if (cancelled_.load(std::memory_order_acquire)) {
+        if (canceled_.load(std::memory_order_acquire)) {
             child->cancel();
         }
         return child;
@@ -215,7 +215,7 @@ private:
         return {};
     }
 
-    std::atomic<bool>         cancelled_{false};
+    std::atomic<bool>         canceled_{false};
     mutable std::mutex        mu_;    // 保护 ex_ 与 cancel() 的竞争
     asio::any_io_executor     ex_;    // 由调用方在执行前绑定
     asio::cancellation_signal sig_;   // asio 操作取消信号

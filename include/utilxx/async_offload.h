@@ -12,7 +12,7 @@
 ///     → asio::cancellation_signal::emit(all)
 ///     → 父协程 co_await 点收到 operation_aborted
 ///     → catch 设置 atomic cancel_flag = true
-///     → 工作线程轮询 isCancelled() 提前退出
+///     → 工作线程轮询 isCanceled() 提前退出
 ///     → 线程释放, 可执行下一个任务
 ///
 /// 注意: 线程池中的工作协程同步执行 (不挂起), asio 取消信号无法抢占, 且等待方
@@ -27,7 +27,7 @@
 ///       [](std::atomic<bool>& cancel_flag) -> utilxx_base::Json {
 ///           for (auto& entry : std::filesystem::directory_iterator(path)) {
 ///               if (cancel_flag.load(std::memory_order_acquire)) {
-///                   throw utilxx::CancelledException("listing cancelled");
+///                   throw utilxx::CanceledException("listing canceled");
 ///               }
 ///               // ... process entry
 ///           }
@@ -78,10 +78,10 @@ asio::awaitable<T> offloadAsync(asio::thread_pool& pool, std::function<asio::awa
 
 /// 将同步阻塞函数卸载到线程池执行, 支持取消传播
 /// - fn: 接受 `std::atomic<bool>&` 参数的可调用对象, 返回 T
-///   fn 内部应周期性检查该 flag, 为 true 时抛出 CancelledException 提前退出
+///   fn 内部应周期性检查该 flag, 为 true 时抛出 CanceledException 提前退出
 /// - 当父协程被取消 (CancelToken emit / operation_aborted) 时:
 ///   1. 设置 cancel_flag = true, 通知工作线程
-///   2. 抛出 CancelledException, 沿协程栈向上传播
+///   2. 抛出 CanceledException, 沿协程栈向上传播
 /// - 工作线程检测到 cancel_flag 后应尽快退出, 释放线程资源
 ///
 /// 注意: fn 按值传入 (理由同 offloadAsync, 避免惰性协程引用已析构的临时对象)。
@@ -163,14 +163,14 @@ asio::awaitable<T> offloadCancellableAsync(
     std::shared_ptr<std::atomic<bool>>  watcherDone;
     CancelTokenPtr                      cancelOp;
     if (nullptr != cancelToken) {
-        if (cancelToken->isCancelled()) {
+        if (cancelToken->isCanceled()) {
             // 已取消: 直接置位, 工作线程轮询检测后退出
             cancelFlag->store(true, std::memory_order_release);
         } else {
             auto ex  = co_await asio::this_coro::executor;
             cancelOp = cancelToken->fork();
             cancelOp->bindExecutor(ex);
-            if (cancelOp->isCancelled()) {
+            if (cancelOp->isCanceled()) {
                 cancelFlag->store(true, std::memory_order_release);
             } else {
                 watcherDone  = std::make_shared<std::atomic<bool>>(false);
@@ -186,7 +186,7 @@ asio::awaitable<T> offloadCancellableAsync(
                         if (watcherDone->load(std::memory_order_acquire)) {
                             co_return;
                         }
-                        if (cancelOp->isCancelled()) {
+                        if (cancelOp->isCanceled()) {
                             cancelFlag->store(true, std::memory_order_release);
                         }
                     },
