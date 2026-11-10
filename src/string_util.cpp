@@ -1,6 +1,8 @@
 #include "utilxx_base/string_util.h"
 #include "boost/beast/core/detail/base64.hpp"
-#include "uchardet/uchardet.h"
+// 用 <uchardet.h>: 安装树给的是 include/uchardet, 源码树给的是 uchardet/src,
+// 两种布局下这个写法都能命中 (写成 "uchardet/uchardet.h" 只在安装树里成立)
+#include <uchardet.h>
 #include <algorithm>
 #include <cerrno>
 #include <cstdint>
