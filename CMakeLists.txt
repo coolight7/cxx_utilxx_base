@@ -230,25 +230,32 @@ unset(_t)
 # 动态库自身目录搜索路径 ($ORIGIN, 仅 ELF 生效)
 cxx_lib_set_own_dir_rpath(cxx_utilxx_base_shared)
 
-# ===== 安装与导出 =====
-install(TARGETS cxx_utilxx_base_shared cxx_utilxx_base_static
-  EXPORT cxx_utilxx_baseTargets
-  DESTINATION "${XX_EXEC_INSTALL_PREFIX}"
-  LIBRARY DESTINATION "${XX_EXEC_INSTALL_PREFIX}"
-  RUNTIME DESTINATION "${XX_EXEC_INSTALL_PREFIX}"
-  ARCHIVE DESTINATION "${XX_EXEC_INSTALL_PREFIX}"
-)
-install(DIRECTORY include/ DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
-install(EXPORT cxx_utilxx_baseTargets
-  NAMESPACE ""
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/cxx_utilxx_base"
-)
+# 只在自己是顶层工程时安装/导出: 被主工程 add_subdirectory 引入时,
+# 依赖目标 (fmt / simdjson / uchardet / iconv / html2md) 不在同一个导出集里,
+# install(EXPORT) 会报 "requires target ... not in any export set"; 那种用法也不需要安装。
+if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  # ===== 安装与导出 =====
+  install(TARGETS cxx_utilxx_base_shared cxx_utilxx_base_static
+    EXPORT cxx_utilxx_baseTargets
+    DESTINATION "${XX_EXEC_INSTALL_PREFIX}"
+    LIBRARY DESTINATION "${XX_EXEC_INSTALL_PREFIX}"
+    RUNTIME DESTINATION "${XX_EXEC_INSTALL_PREFIX}"
+    ARCHIVE DESTINATION "${XX_EXEC_INSTALL_PREFIX}"
+  )
+  install(DIRECTORY include/ DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+  install(EXPORT cxx_utilxx_baseTargets
+    NAMESPACE ""
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/cxx_utilxx_base"
+  )
 
-configure_package_config_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_utilxx_baseConfig.cmake.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/cxx_utilxx_baseConfig.cmake"
-  INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/cxx_utilxx_base"
-)
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/cxx_utilxx_baseConfig.cmake"
-  DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/cxx_utilxx_base"
-)
+  configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_utilxx_baseConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/cxx_utilxx_baseConfig.cmake"
+    INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/cxx_utilxx_base"
+  )
+  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/cxx_utilxx_baseConfig.cmake"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/cxx_utilxx_base"
+  )
+else ()
+  message(STATUS "[cxx_utilxx_base] add_subdirectory 引入: 跳过 install/export")
+endif ()
