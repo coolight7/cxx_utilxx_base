@@ -655,6 +655,14 @@ inline void normalizeLfToCrlf(std::string& text) {
 [[nodiscard]] UTILXX_BASE_API std::tuple<bool, std::optional<std::string>>
     autoConvertToUtf8(std::string_view str, bool _);
 
+/// 自动识别编码并转成 UTF-8，同时把识别到的编码写进 [encoding]
+/// - 等价于 `autoConvertCharset(str, encoding, "UTF-8")`
+/// - 相关: 不需要知道原编码时用 [autoConvertToUtf8](std::string_view, bool)
+[[nodiscard]] inline std::tuple<bool, std::optional<std::string>>
+    autoConvertToUtf8(std::string_view str, std::string& encoding) {
+    return autoConvertCharset(str, encoding, "UTF-8");
+}
+
 UTILXX_BASE_API bool autoConvertToUtf8(std::string& str);
 
 [[nodiscard]] UTILXX_BASE_API std::string autoTryConvertToUtf8(std::string_view str);
