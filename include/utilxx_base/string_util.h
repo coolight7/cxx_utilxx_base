@@ -387,11 +387,16 @@ using IgnoreCaseSet = std::unordered_set<std::string, IgnoreCaseHash, IgnoreCase
     return length;
 }
 
-[[nodiscard]] inline constexpr bool utf8IsAvail(std::string_view str) {
+/// 判断文本是否是可用的 UTF-8
+/// - 空串、或以 '\0' 开头视为不可用 (调用方通常用它筛"有内容且合法"的文本)
+/// - [allowBackstop] 为 false 时, 含 U+FFFD 替换字符也算不可用 (想放行转换后的占位符就传 true)
+/// - 相关: 只看合法性、不筛空串时用 [utf8GetLengthCheckAvail]
+[[nodiscard]] inline constexpr bool
+    utf8IsAvail(std::string_view str, bool allowBackstop = false) {
     if (str.empty() || str[0] == '\0') {
-        return true;
+        return false;
     }
-    return utf8GetLengthCheckAvail(str) != 0;
+    return utf8GetLengthCheckAvail(str, allowBackstop) != 0;
 }
 
 /// 修复非法 UTF-8: 将每一处非法字节序列 (按 Unicode 推荐的
