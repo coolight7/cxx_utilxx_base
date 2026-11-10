@@ -271,6 +271,107 @@ std::string utilxx_base::autoTryConvertToUtf8(std::string_view str) {
     return std::string{str};
 }
 
+std::u16string utilxx_base::utf8ToUtf16(std::string_view str) {
+    std::u16string result{};
+    result.reserve(str.size());
+    const auto* data = reinterpret_cast<const unsigned char*>(str.data());
+    const auto  size = str.size();
+    size_t      i    = 0;
+    while (i < size) {
+        const unsigned char first = data[i];
+        if (first < 0x80) {
+            result.push_back(static_cast<char16_t>(first));
+            ++i;
+            continue;
+        }
+        // 各长度序列的后续字节数
+        int      extra     = 0;
+        char32_t codePoint = 0;
+        char32_t minValue  = 0;
+        if ((first & 0xE0) == 0xC0) {
+            extra     = 1;
+            codePoint = first & 0x1F;
+            minValue  = 0x80;
+        } else if ((first & 0xF0) == 0xE0) {
+            extra     = 2;
+            codePoint = first & 0x0F;
+            minValue  = 0x800;
+        } else if ((first & 0xF8) == 0xF0) {
+            extra     = 3;
+            codePoint = first & 0x07;
+            minValue  = 0x10000;
+        } else {
+            result.push_back(0xFFFD);
+            ++i;
+            continue;
+        }
+        if (i + extra >= size) {
+            result.push_back(0xFFFD);
+            break;
+        }
+        bool isOk = true;
+        for (int k = 1; k <= extra; ++k) {
+            const unsigned char next = data[i + k];
+            if ((next & 0xC0) != 0x80) {
+                isOk = false;
+                break;
+            }
+            codePoint = (codePoint << 6) | (next & 0x3F);
+        }
+        if (false == isOk || codePoint < minValue || codePoint > 0x10FFFF
+            || (codePoint >= 0xD800 && codePoint <= 0xDFFF)) {
+            // 非法序列或非最短编码：只吃掉一个字节，后面的继续按正常流程解
+            result.push_back(0xFFFD);
+            ++i;
+            continue;
+        }
+        i += static_cast<size_t>(extra) + 1;
+        if (codePoint <= 0xFFFF) {
+            result.push_back(static_cast<char16_t>(codePoint));
+        } else {
+            const char32_t value = codePoint - 0x10000;
+            result.push_back(static_cast<char16_t>(0xD800 + (value >> 10)));
+            result.push_back(static_cast<char16_t>(0xDC00 + (value & 0x3FF)));
+        }
+    }
+    return result;
+}
+
+std::string utilxx_base::utf16ToUtf8(std::u16string_view str) {
+    std::string result{};
+    result.reserve(str.size());
+    for (size_t i = 0; i < str.size(); ++i) {
+        char32_t codePoint = str[i];
+        if (codePoint >= 0xD800 && codePoint <= 0xDBFF && i + 1 < str.size()) {
+            const char16_t next = str[i + 1];
+            if (next >= 0xDC00 && next <= 0xDFFF) {
+                codePoint = 0x10000 + ((codePoint - 0xD800) << 10) + (next - 0xDC00);
+                ++i;
+            } else {
+                codePoint = 0xFFFD;
+            }
+        } else if (codePoint >= 0xD800 && codePoint <= 0xDFFF) {
+            codePoint = 0xFFFD;
+        }
+        if (codePoint < 0x80) {
+            result.push_back(static_cast<char>(codePoint));
+        } else if (codePoint < 0x800) {
+            result.push_back(static_cast<char>(0xC0 | (codePoint >> 6)));
+            result.push_back(static_cast<char>(0x80 | (codePoint & 0x3F)));
+        } else if (codePoint < 0x10000) {
+            result.push_back(static_cast<char>(0xE0 | (codePoint >> 12)));
+            result.push_back(static_cast<char>(0x80 | ((codePoint >> 6) & 0x3F)));
+            result.push_back(static_cast<char>(0x80 | (codePoint & 0x3F)));
+        } else {
+            result.push_back(static_cast<char>(0xF0 | (codePoint >> 18)));
+            result.push_back(static_cast<char>(0x80 | ((codePoint >> 12) & 0x3F)));
+            result.push_back(static_cast<char>(0x80 | ((codePoint >> 6) & 0x3F)));
+            result.push_back(static_cast<char>(0x80 | (codePoint & 0x3F)));
+        }
+    }
+    return result;
+}
+
 std::string utilxx_base::base64Encode(std::string_view data) {
     if (data.empty()) {
         // 空输入合法, 解码为空结果
@@ -287,6 +388,13 @@ std::string utilxx_base::base64Encode(std::string_view data) {
     // 调整大小为实际写入的字节数
     result.resize(bytes_written);
     return result;
+}
+
+std::string utilxx_base::base64Encode(const void* data, size_t size) {
+    if (nullptr == data || 0 == size) {
+        return std::string{};
+    }
+    return base64Encode(std::string_view{static_cast<const char*>(data), size});
 }
 
 std::optional<std::string> utilxx_base::base64Decode(std::string_view str) {

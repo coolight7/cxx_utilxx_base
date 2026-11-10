@@ -577,6 +577,19 @@ template<typename T>
     return result;
 }
 
+/// 去掉两端的空白字符 (判定用 `std::isspace`)
+/// - 返回输入的子串视图，不拷贝；调用方要保证 [sv] 在结果使用期间有效
+/// - 相关: 需要独立字符串或只去部分方向时见 [removeBetweenSpace]
+[[nodiscard]] inline std::string_view strTrim(std::string_view sv) {
+    while (!sv.empty() && std::isspace(static_cast<unsigned char>(sv.front())) != 0) {
+        sv.remove_prefix(1);
+    }
+    while (!sv.empty() && std::isspace(static_cast<unsigned char>(sv.back())) != 0) {
+        sv.remove_suffix(1);
+    }
+    return sv;
+}
+
 /// 将文本中的 CRLF (`\r\n`) 行尾统一转换为 LF (`\n`)
 inline void normalizeCrlfToLf(std::string& text) {
     if (text.find("\r\n") == std::string::npos) {
@@ -618,6 +631,10 @@ inline void normalizeLfToCrlf(std::string& text) {
 
 [[nodiscard]] UTILXX_BASE_API std::string base64Encode(std::string_view data);
 
+/// 二进制转 base64 (把整型/浮点数组放进 JSON 时用，便于跨语言读出)
+/// - 与 [base64Encode](std::string_view) 等价，只是入参不用先转成字符串视图
+[[nodiscard]] UTILXX_BASE_API std::string base64Encode(const void* data, size_t size);
+
 /// base64 解码
 /// - 返回 nullopt 表示输入不是合法 base64; 合法但解码为空时返回 optional("")
 ///   (用以区分 "非法输入" 与 "空结果", 例如写入空二进制文件)
@@ -641,6 +658,15 @@ inline void normalizeLfToCrlf(std::string& text) {
 UTILXX_BASE_API bool autoConvertToUtf8(std::string& str);
 
 [[nodiscard]] UTILXX_BASE_API std::string autoTryConvertToUtf8(std::string_view str);
+
+/// UTF-8 转 UTF-16 (Dart 的字符串是 UTF-16 码元序列，算法移植按码元处理)
+/// - 非法字节按 U+FFFD 处理 (解码失败不抛异常)
+/// - 相关: 反向转换见 [utf16ToUtf8]
+[[nodiscard]] UTILXX_BASE_API std::u16string utf8ToUtf16(std::string_view str);
+
+/// UTF-16 转 UTF-8
+/// - 孤立代理按 U+FFFD 输出: UTF-8 表示不了孤立代理，Dart 的 utf8 编码也是同样的处理
+[[nodiscard]] UTILXX_BASE_API std::string utf16ToUtf8(std::u16string_view str);
 
 template<typename T>
 inline std::from_chars_result parseNumberFromString(std::string_view str, T& num) {

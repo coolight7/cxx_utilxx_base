@@ -44,6 +44,9 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/xx_platform_macros.cmake")
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/xx_rpath.cmake")
 
 option(CXX_UTILXX_BASE_ENABLE_CHARSET "Enable iconv/uchardet charset support." ON)
+# 正则加速 (utilxx/regex.h): 开启后需本机有 HyperScan; 关闭时用 std::regex
+# 导出接口以目标名 PkgConfig::hyperscan + 裸库名 hs_runtime 声明该条件依赖
+option(CXX_UTILXX_BASE_ENABLE_HYPERSCAN "Use HyperScan for regex (std::regex if off)." OFF)
 option(CXX_UTILXX_BASE_USE_BOOST_ASIO "Use Boost.Asio (define UTILXX_USE_BOOST_ASIO)." ON)
 # Linux/Android 文件异步 I/O: asio 的底层实现是 io_uring, system.cpp 的运行时探测
 # 直接调用 io_uring_queue_init/io_uring_queue_exit; 开启后本库自身需要 liburing
@@ -80,11 +83,28 @@ if (CXX_UTILXX_BASE_LINUX_IO_URING_SUPPORTED)
   pkg_check_modules(uring REQUIRED IMPORTED_TARGET liburing)
 endif ()
 
+# ===== 可选依赖: HyperScan (正则加速, 见 include/utilxx/regex.h) =====
+# 开启时 utilxx::XXRegex 用 HyperScan, 否则回退 std::regex。
+# 与 io_uring 同理: 导出接口只声明依赖名 PkgConfig::hyperscan 与裸库名 hs_runtime
+# (libhs.pc 未覆盖后者), 处理方要在 find_package(cxx_utilxx_base) 之前先查目标。
+set(_CXX_UTILXX_BASE_EXTRA_LIBS "")
+set(_CXX_UTILXX_BASE_EXTRA_DEFS "")
+set(_CXX_UTILXX_BASE_EXTRA_INCLUDES "")
+set(_CXX_UTILXX_BASE_EXTRA_LINK_DIRS "")
+if (CXX_UTILXX_BASE_ENABLE_HYPERSCAN)
+  pkg_check_modules(hyperscan REQUIRED IMPORTED_TARGET libhs)
+  list(APPEND _CXX_UTILXX_BASE_EXTRA_LIBS PkgConfig::hyperscan hs_runtime)
+  set(_CXX_UTILXX_BASE_EXTRA_INCLUDES ${hyperscan_INCLUDE_DIRS})
+  set(_CXX_UTILXX_BASE_EXTRA_LINK_DIRS ${hyperscan_LIBRARY_DIRS})
+  list(APPEND _CXX_UTILXX_BASE_EXTRA_DEFS UTILXX_BASE_ENABLE_HYPERSCAN=1)
+endif ()
+
 set(_CXX_UTILXX_BASE_SOURCES
   src/env.cpp
   src/json.cpp
   src/json_view.cpp
   src/log.cpp
+  src/regex.cpp
   src/string_util.cpp
   src/system.cpp
   src/version.cpp
@@ -162,6 +182,7 @@ if (XX_IS_WIN_D)
   # asio 网络栈: ws2_32 (socket) / mswsock (AcceptEx 等, MinGW 需显式链接)
   list(APPEND _CXX_UTILXX_BASE_LINK_LIBS ws2_32 mswsock)
 endif ()
+list(APPEND _CXX_UTILXX_BASE_LINK_LIBS ${_CXX_UTILXX_BASE_EXTRA_LIBS})
 
 foreach (_t ${_CXX_UTILXX_BASE_TARGETS})
   target_compile_definitions(${_t} PUBLIC
@@ -180,6 +201,7 @@ foreach (_t ${_CXX_UTILXX_BASE_TARGETS})
   if (XX_IS_WIN_D)
     target_compile_definitions(${_t} PUBLIC _WIN32_WINNT=0x0A00)
   endif ()
+  target_compile_definitions(${_t} PUBLIC ${_CXX_UTILXX_BASE_EXTRA_DEFS})
   target_include_directories(${_t} PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
@@ -196,6 +218,11 @@ foreach (_t ${_CXX_UTILXX_BASE_TARGETS})
   if (CXX_UTILXX_BASE_LINUX_IO_URING_SUPPORTED)
     # 本库自身编译 system.cpp 需要 <liburing.h>: 只作本库内部编译用, 不进导出接口
     target_include_directories(${_t} SYSTEM PRIVATE ${uring_INCLUDE_DIRS})
+  endif ()
+  if (CXX_UTILXX_BASE_ENABLE_HYPERSCAN)
+    # 本库自身编译 regex.cpp 需要 <hs_compile.h> 与 hs_runtime: 只作内部编译/链接用
+    target_include_directories(${_t} SYSTEM PRIVATE ${_CXX_UTILXX_BASE_EXTRA_INCLUDES})
+    target_link_directories(${_t} PRIVATE ${_CXX_UTILXX_BASE_EXTRA_LINK_DIRS})
   endif ()
 endforeach ()
 unset(_t)

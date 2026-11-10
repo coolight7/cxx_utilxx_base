@@ -5,13 +5,15 @@
 ## 定位
 
 - **用途**: 日志 / JSON / 字符串与编码转换 / 容器辅助 / 环境变量 / 系统探测 /
-  取消令牌 / 异步卸载 —— 供 `cxx_utilxx`、`cxx_pluginxx` 与各主程序复用
-- **不含**: 网络 / 数据库 / 正则 / 图引擎 / 会话语义; 需要这些请用 `cxx_utilxx`
+  取消令牌 / 异步卸载 / 文本工具 (正则、Aho-Corasick、逐行 diff) —— 供 `cxx_utilxx`、
+  `cxx_pluginxx` 与各主程序复用
+- **不含**: 网络 / 数据库 / 图引擎 / 会话语义; 需要这些请用 `cxx_utilxx`
 - **只放通用内容**: 本库被多个项目共用, 项目自己的模型、业务字段与解析分支留在各项目仓库,
   不要为了某一个项目方便在这里加东西 (判据与反例见 `cxx_pluginxx_ui` 的 `README.md`「只放通用内容」)
 - **依赖**: fmt、simdjson、Boost (仅头文件; asio/beast)、iconv + uchardet (可选, 字符编码)、
   liburing (可选, Linux/Android 文件异步 I/O —— `CXX_UTILXX_BASE_LINUX_IO_URING_SUPPORTED`;
-  导出接口以库名 `PkgConfig::uring` 声明, 具体库由使用方解析)
+  导出接口以库名 `PkgConfig::uring` 声明, 具体库由使用方解析)、HyperScan (可选, 正则加速 ——
+  `CXX_UTILXX_BASE_ENABLE_HYPERSCAN`; 导出接口以 `PkgConfig::hyperscan` + 裸库名 `hs_runtime` 声明)
   —— **禁止**依赖 OpenSSL / SQLite 等重依赖
 
 ## 目录结构
@@ -21,14 +23,18 @@ include/utilxx_base/    基础件 (命名空间 utilxx_base)
   log.h  json.h  json_view.h  string_util.h  env.h  system.h
   container_util.h  hash.h  lru_cache.h  path_sanitize.h  stream.h
   async_mutex.h  asio_error.h  exception.h  version.h
-include/utilxx/         跨库共享契约 (命名空间 utilxx)
+include/utilxx/         跨库共享契约与文本工具 (命名空间 utilxx)
   cancel.h              CancelToken / CancelTokenPtr / SignalCancelToken / CanceledException
   async_offload.h       offloadAsync / offloadCancellableAsync / asyncWithTimeout
-src/                    实现 (env/json/json_view/log/string_util/system)
+  aho_corasick.h        AhoCorasick (多模式串扫描/剔除)
+  diff_util.h           逐行 diff (DiffLine / computeDiff)
+  regex.h               XXRegex (HyperScan 后端 / std::regex 回退)
+src/                    实现 (env/json/json_view/log/regex/string_util/system)
 ```
 
-> `utilxx` 命名空间在两处扩展: 本库提供取消与卸载契约, `cxx_utilxx` 提供网络/
-> 正则等工具; 二者 include 目录同名 (`utilxx/`) 合并安装, 文件名不重复。
+> `utilxx` 命名空间在两处扩展: 本库提供取消令牌、异步卸载与文本工具 (正则 /
+> Aho-Corasick / 逐行 diff), `cxx_utilxx` 提供网络与散列等工具; 二者 include 目录
+> 同名 (`utilxx/`) 合并安装, 文件名不重复。
 
 ## 构建与使用
 
@@ -45,6 +51,7 @@ target_link_libraries(your_target PRIVATE cxx_utilxx_base_static)  # 或 cxx_uti
 - 产物命名: Release `libcxx_utilxx_base.so` / `libcxx_utilxx_base_static.a`,
   Debug 追加 `d` → `libcxx_utilxx_based.so` / `libcxx_utilxx_base_staticd.a`
 - 可选特性由 CMake 开关控制: `CXX_UTILXX_BASE_ENABLE_CHARSET` (iconv/uchardet 字符编码)、
+  `CXX_UTILXX_BASE_ENABLE_HYPERSCAN` (正则加速, 关闭时用 std::regex)、
   `CXX_UTILXX_BASE_USE_BOOST_ASIO`、`CXX_UTILXX_BASE_LINUX_IO_URING_SUPPORTED`
   (Linux/Android 文件异步 I/O)
 - **条件依赖只声明库名, 使用方在本机 find (顺序: 先依赖库的依赖, 再依赖库本体)**:
